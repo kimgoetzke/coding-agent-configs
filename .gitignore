@@ -1,0 +1,4 @@
+.ai/research/*
+.ai/planning/*
+.ai/review/*
+.claude/settings.local.json
