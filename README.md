@@ -1,6 +1,6 @@
 # My Personal Coding Agent Config Files
 
-This repository contains a collection of configuration files for coding agents.
+This repository contains a collection of configuration files for coding agents. Where a skill or agent hasn't been created by myself, an `Attribution.txt` indicates the source and any modification I made to the original.
 
 > [!NOTE]
 > Once you have copied over the skills in this repository, you can always use `/update-skills` to fetch the latest skills from this repository, iterate through each new or changes one (ignoring local-only skills), showing you the change and asking you if you wish to update it.
