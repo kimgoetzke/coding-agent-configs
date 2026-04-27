@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# awesome-ai setup script
+# Setup script
 # =============================================================================
 #
 # Bootstraps a local coding agent environment by pulling skills, agents, and
-# config files from the awesome-ai GitHub repository into the correct local
-# directories.
+# config files from the kimgoetzke/coding-agent-configs GitHub repository into
+# the correct local directories.
 #
 # Usage:
 #   Interactive (prompts for agent choice):
@@ -142,7 +142,7 @@ AGENT_DIR="$HOME/.$AGENT"
 REPO_AGENT_DIR=".$AGENT"
 
 echo ""
-info "Setting up awesome-ai for $AGENT"
+info "Setting up kimgoetzke/coding-agent-configs for $AGENT"
 
 # -----------------------------------------------------------------------------
 # Clone the repository (shallow + sparse for speed)
