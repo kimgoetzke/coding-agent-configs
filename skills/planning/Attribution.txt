@@ -1,0 +1,3 @@
+Inspiration: https://github.com/OthmanAdi/planning-with-files
+License: MIT
+What: Only selected sections such as some rules or comments have been used from the original
