@@ -5,7 +5,7 @@ This repository contains a collection of configuration files for coding agents. 
 > [!NOTE]
 > Once you have copied over the skills in this repository, you can always use `/update-skills` to fetch the latest skills from this repository, iterate through each new or changes one (ignoring local-only skills), showing you the change and asking you if you wish to update it.
 
-## How to use
+## How to set up
 
 ### Quick setup
 
@@ -39,6 +39,12 @@ If you prefer to set things up by hand:
   - The scripts from the `hooks` folder should be copied into `~/{agent}/hooks`
 - Start your coding agent and use the `/skills` command to confirm the skills are being recognised
   - Claude Code also has a `/hooks` command
+
+## How to use
+
+Each skill is somewhat opinionated, but there is no prescribed workflow — they were built to complement one another and can be composed however fits your process. One possible arrangement:
+
+![Skills overview diagram](./assets/skills-overview.png)
 
 ## Attribution
 
