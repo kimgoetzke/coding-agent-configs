@@ -291,17 +291,17 @@ echo "=============================="
 echo ""
 echo "  Agent:   $AGENT"
 if [ "$skills_skipped" = true ]; then
-  echo "  Skills:  Skipped"
+  echo "  Skills:  skipped"
 else
   echo "  Skills:  $skill_count installed to $AGENT_DIR/skills"
 fi
 if [ "$agents_skipped" = true ]; then
-  echo "  Agents:  Skipped"
+  echo "  Agents:  skipped"
 else
   echo "  Agents:  $agent_count installed to $AGENT_DIR/agents"
 fi
 if [ "$configs_skipped" = true ]; then
-  echo "  Config:  Skipped"
+  echo "  Config:  skipped"
 else
   echo "  Config:  $AGENT_DIR"
 fi
