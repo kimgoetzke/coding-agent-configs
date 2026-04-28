@@ -55,7 +55,7 @@ Based on your research, explicitly determine whether this is a **multi-phase pla
 
 Document your determination and reasoning at the top of `findings.md` under a `## Plan Size` heading.
 
-### Step 3: Populate planning files
+### Step 3: Create remainaing planning files
 
 Create the remaining planning files from the templates based on the determination in step 2 (see [Planning files](#planning-files)). Populate `plan.md` with the plan and `questions.md` with any unresolved questions. Keep `questions.md` scaffolded even if you have no questions yet, as they may come up later. For multi-phase plans, also create `progress.md` as a stub — it will be populated during execution.
 
