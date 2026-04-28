@@ -44,8 +44,9 @@ Parse the arguments:
 
 ### Step 3a: Enable without topic
 
-1. Create `{repo root}/.ai/.research-mode` with:
+1. Create `{repo root}/.ai/.active-mode` with:
    ```
+   mode: research
    topic: (awaiting input)
    document: (pending)
    started: {yyyy-mm-dd HH:mm}
@@ -55,8 +56,9 @@ Parse the arguments:
 
 ### Step 3b: Enable with topic
 
-1. If the flag file doesn't exist yet, create `{repo root}/.ai/.research-mode` with:
+1. If the flag file doesn't exist yet, create `{repo root}/.ai/.active-mode` with:
    ```
+   mode: research
    topic: {the research topic}
    document: (pending)
    started: {yyyy-mm-dd HH:mm}
@@ -77,7 +79,7 @@ While research mode is active, the PostToolUse hook outputs reminders after each
 
 ### Step 5: Disable
 
-1. Delete `{repo root}/.ai/.research-mode`
+1. Delete `{repo root}/.ai/.active-mode`
 2. Confirm: "Research mode is off."
 
 ### Step 6: Session startup cleanup
@@ -114,7 +116,7 @@ Merge into `~/.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/skills/research-mode/scripts/clear-research-mode.sh"
+            "command": "bash ~/.claude/skills/research-mode/scripts/clear-mode.sh"
           }
         ]
       }
@@ -139,7 +141,7 @@ Merge into `~/.copilot/hooks.json`:
     "sessionStart": [
       {
         "type": "command",
-        "bash": "~/.copilot/skills/research-mode/scripts/clear-research-mode.sh copilot"
+        "bash": "~/.copilot/skills/research-mode/scripts/clear-mode.sh copilot"
       }
     ]
   }
@@ -151,7 +153,7 @@ Merge into `~/.copilot/hooks.json`:
 ### Bundled scripts
 
 - [scripts/research-mode-hook.sh](scripts/research-mode-hook.sh) — PostToolUse reminder
-- [scripts/clear-research-mode.sh](scripts/clear-research-mode.sh) — SessionStart cleanup
+- [scripts/clear-mode.sh](scripts/clear-mode.sh) — SessionStart cleanup
 - [scripts/check-hooks.sh](scripts/check-hooks.sh) — verifies the two hooks above are configured in the relevant settings file
 
 ## Notes

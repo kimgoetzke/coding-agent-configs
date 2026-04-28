@@ -14,8 +14,11 @@ FORMAT="${1:-plain}"
 REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
 [ -z "$REPO_ROOT" ] && exit 0
 
-FLAG_FILE="$REPO_ROOT/.ai/.research-mode"
+FLAG_FILE="$REPO_ROOT/.ai/.active-mode"
 [ ! -f "$FLAG_FILE" ] && exit 0
+
+MODE=$(grep "^mode:" "$FLAG_FILE" 2>/dev/null | cut -d' ' -f2-)
+[ "$MODE" != "research" ] && exit 0
 
 TOPIC=$(grep "^topic:" "$FLAG_FILE" 2>/dev/null | cut -d' ' -f2-)
 DOCUMENT=$(grep "^document:" "$FLAG_FILE" 2>/dev/null | cut -d' ' -f2-)

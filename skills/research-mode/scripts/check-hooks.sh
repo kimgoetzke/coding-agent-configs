@@ -17,7 +17,7 @@ set -uo pipefail
 FORMAT="${1:-plain}"
 
 POST_TOOL_USE_SCRIPT="research-mode-hook.sh"
-SESSION_START_SCRIPT="clear-research-mode.sh"
+SESSION_START_SCRIPT="clear-mode.sh"
 
 if [ "$FORMAT" = "copilot" ]; then
   SETTINGS_FILE="$HOME/.copilot/hooks.json"
