@@ -9,7 +9,7 @@ This repository contains a collection of configuration files for coding agents. 
 
 ### Quick setup
 
-Run one of the commands below to automatically install all skills, agents, and config files for your coding agent. The script will prompt before overwriting any existing config files.
+Run one of the commands below to automatically install all skills, agents, and config files for your coding agent. The script will ask if you want to install skills, agents, and/or config files - and it'll prompt before overwriting any existing config files.
 
 **Claude Code:**
 
@@ -23,7 +23,7 @@ curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/mai
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --copilot
 ```
 
-This will not install any hooks for you though. Browse `/hooks` to see if you need any of them. Each hook contains setup instructions.
+This will not install any hooks for you though. Pick and choose from the `/hooks` directory. Each hook contains instructions.
 
 ### Manual setup
 
@@ -46,3 +46,4 @@ See `Attribution.txt` in skill folders or at the root of the agent folder.
 
 - Matt Pocock: https://github.com/mattpocock/skills
 - Ahmad Othman Ammar Adi: https://github.com/OthmanAdi/planning-with-files
+- HumanLayer: https://github.com/humanlayer/humanlayer
