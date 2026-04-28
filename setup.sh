@@ -187,22 +187,30 @@ fi
 # Existing skills are overwritten (same behaviour as the update-skills command).
 # -----------------------------------------------------------------------------
 
-info "Installing skills..."
-
-SKILLS_SOURCE="$TMPDIR_REMOTE/repo/skills"
-SKILLS_TARGET="$AGENT_DIR/skills"
-mkdir -p "$SKILLS_TARGET"
-
 skill_count=0
-for skill_dir in "$SKILLS_SOURCE"/*/; do
-  [ -d "$skill_dir" ] || continue
-  skill_name=$(basename "$skill_dir")
-  mkdir -p "$SKILLS_TARGET/$skill_name"
-  cp -r "$skill_dir"* "$SKILLS_TARGET/$skill_name/"
-  skill_count=$((skill_count + 1))
-done
+skills_skipped=false
 
-ok "Installed $skill_count skills to $SKILLS_TARGET"
+echo ""
+if ask_yes_no "Install skills?"; then
+  info "Installing skills..."
+
+  SKILLS_SOURCE="$TMPDIR_REMOTE/repo/skills"
+  SKILLS_TARGET="$AGENT_DIR/skills"
+  mkdir -p "$SKILLS_TARGET"
+
+  for skill_dir in "$SKILLS_SOURCE"/*/; do
+    [ -d "$skill_dir" ] || continue
+    skill_name=$(basename "$skill_dir")
+    mkdir -p "$SKILLS_TARGET/$skill_name"
+    cp -r "$skill_dir"* "$SKILLS_TARGET/$skill_name/"
+    skill_count=$((skill_count + 1))
+  done
+
+  ok "Installed $skill_count skills to $SKILLS_TARGET"
+else
+  warn "Skipped skills installation"
+  skills_skipped=true
+fi
 
 # -----------------------------------------------------------------------------
 # Install agents
@@ -211,22 +219,30 @@ ok "Installed $skill_count skills to $SKILLS_TARGET"
 # overwritten (same behaviour as the update-agents command).
 # -----------------------------------------------------------------------------
 
-info "Installing agents..."
-
-AGENTS_SOURCE="$TMPDIR_REMOTE/repo/$REPO_AGENT_DIR/agents"
-AGENTS_TARGET="$AGENT_DIR/agents"
-mkdir -p "$AGENTS_TARGET"
-
 agent_count=0
-if [ -d "$AGENTS_SOURCE" ]; then
-  for agent_file in "$AGENTS_SOURCE"/*.md; do
-    [ -f "$agent_file" ] || continue
-    cp "$agent_file" "$AGENTS_TARGET/"
-    agent_count=$((agent_count + 1))
-  done
-fi
+agents_skipped=false
 
-ok "Installed $agent_count agents to $AGENTS_TARGET"
+echo ""
+if ask_yes_no "Install agents?"; then
+  info "Installing agents..."
+
+  AGENTS_SOURCE="$TMPDIR_REMOTE/repo/$REPO_AGENT_DIR/agents"
+  AGENTS_TARGET="$AGENT_DIR/agents"
+  mkdir -p "$AGENTS_TARGET"
+
+  if [ -d "$AGENTS_SOURCE" ]; then
+    for agent_file in "$AGENTS_SOURCE"/*.md; do
+      [ -f "$agent_file" ] || continue
+      cp "$agent_file" "$AGENTS_TARGET/"
+      agent_count=$((agent_count + 1))
+    done
+  fi
+
+  ok "Installed $agent_count agents to $AGENTS_TARGET"
+else
+  warn "Skipped agents installation"
+  agents_skipped=true
+fi
 
 # -----------------------------------------------------------------------------
 # Install config files (with overwrite protection)
@@ -235,26 +251,34 @@ ok "Installed $agent_count agents to $AGENTS_TARGET"
 # etc.), so the script prompts before overwriting any that already exist.
 # -----------------------------------------------------------------------------
 
-info "Installing config files..."
+configs_skipped=false
 
-CONFIG_SOURCE="$TMPDIR_REMOTE/repo/$REPO_AGENT_DIR"
+echo ""
+if ask_yes_no "Install config files?"; then
+  info "Installing config files..."
 
-# Determine which config files to install based on the agent
-if [ "$AGENT" = "claude" ]; then
-  CONFIG_FILES=("CLAUDE.md" "settings.json" "statusline-command.sh")
-elif [ "$AGENT" = "copilot" ]; then
-  CONFIG_FILES=("copilot-instructions.md" "hooks.json")
-fi
+  CONFIG_SOURCE="$TMPDIR_REMOTE/repo/$REPO_AGENT_DIR"
 
-mkdir -p "$AGENT_DIR"
-
-for config_file in "${CONFIG_FILES[@]}"; do
-  if [ -f "$CONFIG_SOURCE/$config_file" ]; then
-    copy_config_file "$CONFIG_SOURCE/$config_file" "$AGENT_DIR"
-  else
-    warn "$config_file not found in repository — skipped"
+  # Determine which config files to install based on the agent
+  if [ "$AGENT" = "claude" ]; then
+    CONFIG_FILES=("CLAUDE.md" "settings.json" "statusline-command.sh")
+  elif [ "$AGENT" = "copilot" ]; then
+    CONFIG_FILES=("copilot-instructions.md" "hooks.json")
   fi
-done
+
+  mkdir -p "$AGENT_DIR"
+
+  for config_file in "${CONFIG_FILES[@]}"; do
+    if [ -f "$CONFIG_SOURCE/$config_file" ]; then
+      copy_config_file "$CONFIG_SOURCE/$config_file" "$AGENT_DIR"
+    else
+      warn "$config_file not found in repository — skipped"
+    fi
+  done
+else
+  warn "Skipped config files installation"
+  configs_skipped=true
+fi
 
 # -----------------------------------------------------------------------------
 # Summary
@@ -266,11 +290,23 @@ echo "  Setup complete!"
 echo "=============================="
 echo ""
 echo "  Agent:   $AGENT"
-echo "  Skills:  $skill_count installed to $SKILLS_TARGET"
-echo "  Agents:  $agent_count installed to $AGENTS_TARGET"
-echo "  Config:  $AGENT_DIR"
+if [ "$skills_skipped" = true ]; then
+  echo "  Skills:  Skipped"
+else
+  echo "  Skills:  $skill_count installed to $AGENT_DIR/skills"
+fi
+if [ "$agents_skipped" = true ]; then
+  echo "  Agents:  Skipped"
+else
+  echo "  Agents:  $agent_count installed to $AGENT_DIR/agents"
+fi
+if [ "$configs_skipped" = true ]; then
+  echo "  Config:  Skipped"
+else
+  echo "  Config:  $AGENT_DIR"
+fi
 echo ""
 echo "Next steps:"
-echo "  1. Start your coding agent and verify skills are loaded"
+echo "  1. Start your coding agent and verify the setup"
 echo "  2. Use /update-skills later to fetch updates"
 echo ""

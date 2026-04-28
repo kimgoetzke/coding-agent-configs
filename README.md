@@ -1,6 +1,6 @@
 # My Personal Coding Agent Config Files
 
-This repository contains a collection of configuration files for coding agents. Where a skill or agent hasn't been created by myself, an `Attribution.txt` indicates the source and any modification I made to the original.
+This repository contains a collection of configuration files for coding agents. Where a skill or agent hasn't been created by myself, an `Attribution.txt` in the same folder indicates the source and any modification I made to the original.
 
 > [!NOTE]
 > Once you have copied over the skills in this repository, you can always use `/update-skills` to fetch the latest skills from this repository, iterate through each new or changes one (ignoring local-only skills), showing you the change and asking you if you wish to update it.
@@ -39,3 +39,10 @@ If you prefer to set things up by hand:
   - The scripts from the `hooks` folder should be copied into `~/{agent}/hooks`
 - Start your coding agent and use the `/skills` command to confirm the skills are being recognised
   - Claude Code also has a `/hooks` command
+
+## Attribution
+
+See `Attribution.txt` in skill folders or at the root of the agent folder.
+
+- Matt Pocock: https://github.com/mattpocock/skills
+- Ahmad Othman Ammar Adi: https://github.com/OthmanAdi/planning-with-files
