@@ -1,0 +1,7 @@
+Source: https://github.com/mattpocock/skills
+License: MIT License
+Changes:
+- Naming conventions
+- Removed max. word count
+- Guidance for using decomposing SKILL.md
+- Skill folder structure
