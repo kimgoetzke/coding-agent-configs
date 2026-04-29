@@ -64,8 +64,8 @@ Parse the arguments:
    started: {yyyy-mm-dd HH:mm}
    ```
    If it already exists (from Step 3a), update the `topic:` line.
-2. Invoke the `persistent-memory` skill to begin researching the topic.
-3. After the persistent-memory skill creates the research document, update the flag file's `document:` line with the file path.
+2. Invoke the `persist` skill to begin researching the topic.
+3. After the `persist` skill creates the research document, update the flag file's `document:` line with the file path.
 4. Confirm to the user: "Research mode is on. I'll keep updating {document path} as we go. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session."
 5. If running in Claude Code, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
 
@@ -88,7 +88,7 @@ A `SessionStart` hook automatically clears stale flag files from previous sessio
 
 ## Hook Setup
 
-Research mode relies on two hooks to function fully. Without the PostToolUse hook, only the `persistent-memory` skill's built-in continuous update behaviour and Step 4 above apply.
+Research mode relies on two hooks to function fully. Without the PostToolUse hook, only the `persist` skill's built-in continuous update behaviour and Step 4 above apply.
 
 Step 1 runs `scripts/check-hooks.sh` to verify configuration automatically. If that reports `STATUS: NO` or `STATUS: PARTIAL`, offer to add the missing hooks using the appropriate format below.
 
