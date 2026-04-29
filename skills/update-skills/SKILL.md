@@ -1,6 +1,7 @@
 ---
 name: update-skills
 description: Check for and apply updates to locally installed skills from the kimgoetzke/coding-agent-configs GitHub repo. Use when user asks to update skills, sync skills, check for skill updates, or mentions updating their skills.
+disable-model-invocation: true
 ---
 
 # Update Skills

@@ -1,6 +1,7 @@
 ---
 name: update-agents
 description: Check for and apply updates to locally installed agents from the kimgoetzke/coding-agent-configs GitHub repo. Use when user asks to update agents, sync agents, check for agent updates, or mentions updating their agents.
+disable-model-invocation: true
 ---
 
 # Update Agents
