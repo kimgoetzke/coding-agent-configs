@@ -44,7 +44,7 @@ If you prefer to set things up by hand:
 
 ### Skills
 
-Each skill is somewhat opinionated, but there is no prescribed workflow — they were built to complement one another and can be composed however fits your process. One possible arrangement:
+Each skill is somewhat opinionated, but there is no prescribed workflow - they were built to complement one another and can be composed however fits your process. One possible arrangement:
 
 ![Skills overview diagram](./assets/skills-overview.png)
 
