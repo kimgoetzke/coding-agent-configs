@@ -1,0 +1,8 @@
+Source: https://github.com/mattpocock/skills
+License: MIT
+Changes:
+- Renamed from /domain-model (this here is not Matt Pocock's /grill-me!)
+- File formatting, capitalisation of headings
+- Context document location
+- Require all ADRs to be in `.ai/docs/adr/
+- Use British English

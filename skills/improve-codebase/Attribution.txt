@@ -1,0 +1,8 @@
+Source: https://github.com/mattpocock/skills
+License: MIT
+Changes:
+- Renamed from /improve-codebase-architecture
+- File formatting
+- Reference to /domain-model -> /grill-me
+- Reference `.ai/docs/ folders instead
+- Use British English
