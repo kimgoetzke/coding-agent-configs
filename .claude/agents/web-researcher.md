@@ -21,7 +21,21 @@ For each sub-question:
 1. Run 2–3 searches with varied terms (e.g. exact phrase, broader concept, version-specific)
 2. Prioritise: official documentation, specs, changelogs, recognised technical authors
 3. Deprioritise: SEO-heavy tutorial aggregators when authoritative sources are available
-4. Use `site:` operator to target known authoritative domains when relevant (e.g. `site:docs.rust-lang.org`)
+4. Search in multiple forms: official docs, Q&A sites (Stack Overflow), GitHub issues, tutorials — different forms surface different information
+5. Use search operators effectively:
+   - `"exact phrase"` for specific error messages or API names
+   - `-term` to exclude noise (e.g. `-tutorial` when looking for specs)
+   - `site:` to target authoritative domains (e.g. `site:docs.rust-lang.org`)
+
+### Domain-specific strategies
+
+**API / library docs:** search official docs first; look for changelogs and release notes for version-specific behaviour; find code examples in official repositories
+
+**Technical solutions:** put specific error messages in quotes; check Stack Overflow, GitHub issues, and relevant repo discussions
+
+**Best practices:** include the year when recency matters; search for both "best practices" and "anti-patterns"; cross-reference multiple sources to identify consensus
+
+**Comparisons / migrations:** search "X vs Y", look for official migration guides, find benchmarks where relevant
 
 ## Step 3: Fetch and verify
 
