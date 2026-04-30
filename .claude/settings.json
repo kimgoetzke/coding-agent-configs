@@ -13,19 +13,15 @@
       "Bash(bash */skills/update-agents/scripts/check-updates.sh *)",
       "Bash(bash */skills/update-agents/scripts/apply-updates.sh *)",
       "Bash(bash */skills/planning-mode/scripts/check-hooks.sh)",
-      "Bash(bash */skills/planning-mode/scripts/clear-planning-mode.sh:*)",
+      "Bash(bash */skills/planning-mode/scripts/clear-mode.sh:*)",
       "Bash(bash */skills/planning-mode/scripts/planning-mode-hook.sh:*)",
-      "Bash(bash */skills/troubleshoot-ticket/scripts/check-prerequisites.sh)",
       "Bash(bash */skills/troubleshooting-mode/scripts/check-hooks.sh)",
-      "Bash(bash */skills/troubleshooting-mode/scripts/clear-troubleshooting-mode.sh:*)",
+      "Bash(bash */skills/troubleshooting-mode/scripts/clear-mode.sh:*)",
       "Bash(bash */skills/troubleshooting-mode/scripts/troubleshooting-mode-hook.sh:*)",
       "Bash(bash */skills/research-mode/scripts/check-hooks.sh)",
-      "Bash(bash */skills/research-mode/scripts/clear-research-mode.sh:*)",
+      "Bash(bash */skills/research-mode/scripts/clear-mode.sh:*)",
       "Bash(bash */skills/research-mode/scripts/research-mode-hook.sh:*)",
-      "Bash(bash */skills/research-codebase/scripts/collect-metadata.sh *)",
-      "Bash(rm -f */.ai/.research-mode)",
-      "Bash(rm -f */.ai/.troubleshooting-mode)",
-      "Bash(rm -f */.ai/.planning-mode)",
+      "Bash(rm -f */.ai/.active-mode)",
       "Bash(find *)",
       "Bash(mkdir *)",
       "Bash(tail *)",
@@ -49,7 +45,12 @@
       "WebFetch(domain:github.blog)",
       "WebFetch(domain:raw.githubusercontent.com)"
     ],
-    "deny": ["Bash(git push *)", "Bash(git reset --hard *)"]
+    "deny": [
+      "Bash(git push *)",
+      "Bash(git branch -D)",
+      "Bash(git clean *)",
+      "Bash(git reset --hard *)"
+    ]
   },
   "hooks": {},
   "statusLine": {
