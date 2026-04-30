@@ -50,7 +50,7 @@ Each skill is somewhat opinionated, but there is no prescribed workflow - they w
 
 ### Project folder structure
 
-Skills that persist work to disk all write under a `.ai/` directory at your project root. A project that uses these skills regularly will accumulate a structure like this:
+Skills that persist work to disk all write under a `.ai/` directory at your project root. A project that uses these skills will accumulate a structure like this:
 
 ```
 your-project/
