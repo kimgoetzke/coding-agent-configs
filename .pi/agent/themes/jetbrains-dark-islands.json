@@ -38,9 +38,9 @@
     "customMessageBg": "base02",
     "customMessageText": "base06",
     "customMessageLabel": "base0D",
-    "toolPendingBg": "base01",
-    "toolSuccessBg": "base02",
-    "toolErrorBg": "#3B3034",
+    "toolPendingBg": "base02",
+    "toolSuccessBg": "base01",
+    "toolErrorBg": "#2B1F22",
     "toolTitle": "base0D",
     "toolOutput": "base07",
 
