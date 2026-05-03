@@ -1,0 +1,13 @@
+{
+  "name": "pi-subagent-support-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./subagent-support.ts"
+    ]
+  },
+  "scripts": {
+    "test": "nix shell nixpkgs#nodejs --command node --test *.test.js"
+  }
+}
