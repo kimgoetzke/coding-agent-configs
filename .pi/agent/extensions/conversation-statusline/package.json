@@ -1,0 +1,13 @@
+{
+  "name": "pi-conversation-statusline-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./conversation-statusline.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
+  }
+}

@@ -2,3 +2,5 @@
 .ai/planning/*
 .ai/review/*
 .claude/settings.local.json
+**/node_modules/*
+.pi/agent/**/package-lock.json
