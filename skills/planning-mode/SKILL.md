@@ -14,13 +14,13 @@ argument-hint: [topic or 'off' or empty]
 
 Planning mode works best with automated reminders, but it can still run with manual planning-doc updates when hook support is unavailable.
 
-| Tool        | Hook config location                                      | Script format argument |
+| Tool        | Hook config location / equivalent                         | Script format argument |
 | ----------- | --------------------------------------------------------- | ---------------------- |
 | Claude Code | `~/.claude/settings.json`                                 | _(none — default)_     |
 | Copilot     | `~/.copilot/hooks.json`                                   | `copilot`              |
-| Pi          | No equivalent standalone hook file in this starter config | _(manual fallback)_    |
+| Pi          | Bundled `active-mode` extension in `.pi/agent/extensions/active-mode/` | _(extension-driven)_   |
 
-Claude Code and Copilot support the bundled `PostToolUse` and `SessionStart` hook scripts directly. Pi does not use the same standalone hook configuration files in this repository's starter config, so on Pi this skill should skip hook installation/check scripts and rely on manual planning-doc updates unless the user has added an equivalent Pi extension.
+Claude Code and Copilot support the bundled `PostToolUse` and `SessionStart` hook scripts directly. Pi does not use the same standalone hook configuration files in this repository's starter config. Instead, this starter config now ships a Pi-native `active-mode` extension that reads `.ai/.active-mode`, clears stale flags on fresh session start, injects reminder context before LLM calls, and shows mode status in the UI. If that extension is not installed, fall back to manual planning-doc updates.
 
 If you cannot determine which tool you are, ask the user.
 
@@ -56,7 +56,7 @@ Otherwise:
 
 - If running in Claude Code, run `bash {skill-dir}/scripts/check-hooks.sh` and parse the structured output.
 - If running in Copilot, run `bash {skill-dir}/scripts/check-hooks.sh copilot` and parse the structured output.
-- If running in Pi, skip the automated hook check. Explain that this repository's Pi starter config does not currently expose equivalent planning-mode reminder/cleanup hooks, so planning mode will rely on manual update discipline only, then continue to Step 2.
+- If running in Pi, skip the standalone hook check. Explain that this repository's Pi starter config uses the bundled `active-mode` extension instead of standalone hook files. If that extension is installed, planning mode gets equivalent reminder/cleanup behaviour automatically. Otherwise planning mode will rely on manual update discipline only. Then continue to Step 2.
 
 For Claude Code and Copilot:
 
@@ -150,7 +150,7 @@ When `/planning-mode off` is invoked:
 
 ### Step 10: Session startup cleanup
 
-For harnesses with `SessionStart` hook support configured, stale flag files from previous sessions are cleared automatically. In Pi/manual mode, delete a stale `.ai/.active-mode` file before re-enabling planning mode if one is left behind.
+For harnesses with `SessionStart` hook support configured, stale flag files from previous sessions are cleared automatically. In Pi, the bundled `active-mode` extension clears stale flags on fresh session start when installed. Without that extension, delete a stale `.ai/.active-mode` file before re-enabling planning mode if one is left behind.
 
 ## Critical rules
 
@@ -290,7 +290,13 @@ Merge into `~/.copilot/hooks.json`:
 
 ### Pi
 
-This repository's Pi starter config does not currently include a direct equivalent of these planning-mode reminder/cleanup hooks. On Pi, use planning mode with manual document updates unless you have separately installed a Pi extension that provides equivalent reminders and stale-flag cleanup.
+This repository's Pi starter config includes the `active-mode` extension under `.pi/agent/extensions/active-mode/`. That extension uses Pi lifecycle events:
+
+- fresh-session cleanup via `session_start`
+- per-turn / post-tool-style reminders via `before_agent_start` and `context`
+- visible mode state via `ctx.ui.setStatus()` and `ctx.ui.setWidget()`
+
+If that extension is installed, planning mode gets equivalent reminder and stale-flag cleanup behaviour automatically. If it is not installed, use manual document updates.
 
 ### Bundled scripts
 
@@ -309,5 +315,6 @@ This repository's Pi starter config does not currently include a direct equivale
 
 - **Mutual exclusivity**: There are other modes and they are mutually exclusive. They all share the `.ai/.active-mode` flag file. If another mode is active (check `mode:` field in `.ai/.active-mode`), disable it before enabling planning-mode.
 - For harnesses with SessionStart hook support configured, the flag file is automatically cleared at session startup.
+- In Pi, the bundled `active-mode` extension provides the equivalent behaviour without standalone hook files.
 - If you need to persist planning mode across sessions, re-enable it with `/planning-mode` at the start of the new session.
 - Both hook scripts are silent when the flag file doesn't exist — no impact on normal conversations.

@@ -29,7 +29,9 @@ curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/mai
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --pi
 ```
 
-For Claude Code and GitHub Copilot, this still will not install any hooks for you though. Pick and choose from the `/hooks` directory. Each hook contains instructions. Pi uses the starter extensions under `.pi/agent/extensions/` instead of the hook files in `/hooks`.
+For Claude Code and GitHub Copilot, this still will not install any hooks for you though. Pick and choose from the `/hooks` directory.
+
+Each hook contains instructions. Pi does not support hooks, it uses the starter extensions under `.pi/agent/extensions/` instead, including the bundled `active-mode` extension that provides `*-mode` lifecycle reminders and stale-flag cleanup.
 
 ### Manual setup
 
@@ -42,16 +44,15 @@ If you prefer to set things up by hand:
   - Example: `skills` -> `~/.copilot/skills`
   - Example: `skills` -> `~/.pi/agent/skills`
   - Agents pick up skills automatically on startup or when prompted to reload them
-- If you're setting up Pi manually, also copy the starter files from `.pi/agent/` into `~/.pi/agent/`
-  - This includes `AGENT.md`, `settings.json`, `command-policy.json5`, `agents/`, `extensions/`, and `themes/`
-  - The Pi starter config in this repository expects those extensions to be present, especially `subagent-support`
-- Review the `hooks` folder from the root of this repository and pick any hooks you like if you're using Claude Code or GitHub Copilot
+- If you're using Pi: the skills in this repo expect several extensions to be present, e.g. `subagent-support` and `active-mode`
+- If you're using Claude Code or GitHub Copilot: Review the `hooks` folder from the root of this repository and pick any hooks you like
   - The files inside the `hooks` folder have comments explaining how to use them
   - The scripts from the `hooks` folder should be copied into `~/{agent}/hooks`
-  - Pi does not use these hook files directly in this starter configuration
-- Start your coding agent and confirm the skills are being recognised
-  - Claude Code also has a `/hooks` command
-  - Pi users can run `/reload` after copying files manually
+  - Pi does support the concept of hooks
+- Start your coding agent and confirm the changes are being recognised
+  - Every supported coding agent displays the name or number of skills loaded on start
+  - Pi users can run `/reload` after copying files manually instead of restarting
+  - Claude Code has a `/hooks` command to show loaded hooks
 
 ## How to use
 

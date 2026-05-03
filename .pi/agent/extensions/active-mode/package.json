@@ -1,0 +1,13 @@
+{
+  "name": "pi-active-mode-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./active-mode.js"
+    ]
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
+  }
+}
