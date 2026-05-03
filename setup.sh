@@ -14,11 +14,16 @@
 #   Non-interactive (pass agent as argument):
 #     curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --claude
 #     curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --copilot
+#     curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --pi
 #
 # What it installs:
-#   - All shared skills from skills/ -> ~/.{agent}/skills/
-#   - Agent definitions from .{agent}/agents/ -> ~/.{agent}/agents/
-#   - Config files from .{agent}/ -> ~/.{agent}/ (prompts before overwriting)
+#   - All shared skills from skills/ -> the selected agent's skills directory
+#   - Agent definitions from the selected agent tree -> the local agents directory
+#   - Config files from the selected agent tree -> the local config directory
+#   - For Pi, optional starter extensions and themes from .pi/agent/
+#
+# Optional environment:
+#   - REPO_URL: Override the repository URL/path for local testing
 #
 # Requirements:
 #   - git (for sparse checkout of the repository)
@@ -27,7 +32,7 @@
 
 set -euo pipefail
 
-REPO_URL="https://github.com/kimgoetzke/coding-agent-configs.git"
+REPO_URL="${REPO_URL:-https://github.com/kimgoetzke/coding-agent-configs.git}"
 
 # -----------------------------------------------------------------------------
 # Helper functions
@@ -37,6 +42,16 @@ info()  { printf "\033[0;34m[info]\033[0m  %s\n" "$1"; }
 ok()    { printf "\033[0;32m[ok]\033[0m    %s\n" "$1"; }
 warn()  { printf "\033[0;33m[warn]\033[0m  %s\n" "$1"; }
 error() { printf "\033[0;31m[error]\033[0m %s\n" "$1" >&2; }
+
+print_usage() {
+  echo "Usage: setup.sh [--claude | --copilot | --pi]"
+  echo ""
+  echo "  --claude   Set up for Claude Code"
+  echo "  --copilot  Set up for GitHub Copilot"
+  echo "  --pi       Set up for Pi"
+  echo ""
+  echo "If no flag is provided, the script will prompt interactively."
+}
 
 # Prompt the user for a yes/no answer. When stdin is a pipe (curl | bash),
 # reads from /dev/tty so the user can still respond interactively.
@@ -76,6 +91,23 @@ copy_config_file() {
   fi
 }
 
+# Copy a directory tree to the target parent directory, replacing any existing
+# directory with the same name.
+# $1 = source directory path
+# $2 = target parent directory
+copy_directory_overwrite() {
+  local source_dir="${1%/}"
+  local target_parent="$2"
+  local dir_name
+  dir_name=$(basename "$source_dir")
+  local target_dir="$target_parent/$dir_name"
+
+  rm -rf "$target_dir"
+  mkdir -p "$target_parent"
+  cp -R "$source_dir" "$target_parent/"
+  ok "Installed $dir_name"
+}
+
 # -----------------------------------------------------------------------------
 # Parse arguments
 # -----------------------------------------------------------------------------
@@ -86,18 +118,14 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --claude)  AGENT="claude"  ; shift ;;
     --copilot) AGENT="copilot" ; shift ;;
+    --pi)      AGENT="pi"      ; shift ;;
     -h|--help)
-      echo "Usage: setup.sh [--claude | --copilot]"
-      echo ""
-      echo "  --claude   Set up for Claude Code"
-      echo "  --copilot  Set up for GitHub Copilot"
-      echo ""
-      echo "If no flag is provided, the script will prompt interactively."
+      print_usage
       exit 0
       ;;
     *)
       error "Unknown argument: $1"
-      error "Usage: setup.sh [--claude | --copilot]"
+      error "Usage: setup.sh [--claude | --copilot | --pi]"
       exit 1
       ;;
   esac
@@ -113,23 +141,25 @@ if [ -z "$AGENT" ]; then
   echo ""
   echo "  1) Claude Code"
   echo "  2) GitHub Copilot"
+  echo "  3) Pi"
   echo ""
 
   if [ -t 0 ]; then
-    printf "Enter 1 or 2: "
+    printf "Enter 1, 2, or 3: "
     read -r choice
   elif { true < /dev/tty; } 2>/dev/null; then
-    printf "Enter 1 or 2: "
+    printf "Enter 1, 2, or 3: "
     read -r choice < /dev/tty
   else
     error "No agent specified and no terminal available for prompting."
-    error "Re-run with --claude or --copilot."
+    error "Re-run with --claude, --copilot, or --pi."
     exit 1
   fi
 
   case "$choice" in
     1) AGENT="claude"  ;;
     2) AGENT="copilot" ;;
+    3) AGENT="pi"      ;;
     *)
       error "Invalid choice: $choice"
       exit 1
@@ -138,8 +168,23 @@ if [ -z "$AGENT" ]; then
 fi
 
 # Set paths based on the selected agent
-AGENT_DIR="$HOME/.$AGENT"
-REPO_AGENT_DIR=".$AGENT"
+case "$AGENT" in
+  claude)
+    AGENT_DIR="$HOME/.claude"
+    REPO_AGENT_DIR=".claude"
+    AGENT_FILE_GLOB="*.md"
+    ;;
+  copilot)
+    AGENT_DIR="$HOME/.copilot"
+    REPO_AGENT_DIR=".copilot"
+    AGENT_FILE_GLOB="*.agent.md"
+    ;;
+  pi)
+    AGENT_DIR="$HOME/.pi/agent"
+    REPO_AGENT_DIR=".pi/agent"
+    AGENT_FILE_GLOB="*.md"
+    ;;
+esac
 
 echo ""
 info "Setting up kimgoetzke/coding-agent-configs for $AGENT"
@@ -165,7 +210,11 @@ git clone \
   --quiet 2>/dev/null
 
 # Check out only the skills directory and the selected agent's directory
-git -C "$TMPDIR_REMOTE/repo" sparse-checkout set "skills/" "$REPO_AGENT_DIR/" 2>/dev/null
+if [ "$AGENT" = "pi" ]; then
+  git -C "$TMPDIR_REMOTE/repo" sparse-checkout set "skills/" "$REPO_AGENT_DIR/" 2>/dev/null
+else
+  git -C "$TMPDIR_REMOTE/repo" sparse-checkout set "skills/" "$REPO_AGENT_DIR/" 2>/dev/null
+fi
 
 ok "Fetched repository contents"
 
@@ -200,9 +249,7 @@ if ask_yes_no "Install skills?"; then
 
   for skill_dir in "$SKILLS_SOURCE"/*/; do
     [ -d "$skill_dir" ] || continue
-    skill_name=$(basename "$skill_dir")
-    mkdir -p "$SKILLS_TARGET/$skill_name"
-    cp -r "$skill_dir"* "$SKILLS_TARGET/$skill_name/"
+    copy_directory_overwrite "$skill_dir" "$SKILLS_TARGET"
     skill_count=$((skill_count + 1))
   done
 
@@ -215,8 +262,8 @@ fi
 # -----------------------------------------------------------------------------
 # Install agents
 # -----------------------------------------------------------------------------
-# Agent definitions are agent-specific markdown files. Existing agents are
-# overwritten (same behaviour as the update-agents command).
+# Agent definitions are agent-specific files. Existing agents are overwritten
+# (same behaviour as the update-agents command).
 # -----------------------------------------------------------------------------
 
 agent_count=0
@@ -231,7 +278,7 @@ if ask_yes_no "Install agents?"; then
   mkdir -p "$AGENTS_TARGET"
 
   if [ -d "$AGENTS_SOURCE" ]; then
-    for agent_file in "$AGENTS_SOURCE"/*.md; do
+    for agent_file in "$AGENTS_SOURCE"/$AGENT_FILE_GLOB; do
       [ -f "$agent_file" ] || continue
       cp "$agent_file" "$AGENTS_TARGET/"
       agent_count=$((agent_count + 1))
@@ -264,6 +311,8 @@ if ask_yes_no "Install config files?"; then
     CONFIG_FILES=("CLAUDE.md" "settings.json" "statusline-command.sh")
   elif [ "$AGENT" = "copilot" ]; then
     CONFIG_FILES=("copilot-instructions.md" "hooks.json")
+  else
+    CONFIG_FILES=("AGENT.md" "settings.json" "command-policy.json5")
   fi
 
   mkdir -p "$AGENT_DIR"
@@ -278,6 +327,68 @@ if ask_yes_no "Install config files?"; then
 else
   warn "Skipped config files installation"
   configs_skipped=true
+fi
+
+# -----------------------------------------------------------------------------
+# Install Pi extensions
+# -----------------------------------------------------------------------------
+
+pi_extensions_skipped=false
+pi_extension_count=0
+
+if [ "$AGENT" = "pi" ]; then
+  echo ""
+  if ask_yes_no "Install Pi starter extensions?"; then
+    info "Installing Pi extensions..."
+
+    PI_EXTENSIONS_SOURCE="$TMPDIR_REMOTE/repo/$REPO_AGENT_DIR/extensions"
+    PI_EXTENSIONS_TARGET="$AGENT_DIR/extensions"
+    mkdir -p "$PI_EXTENSIONS_TARGET"
+
+    if [ -d "$PI_EXTENSIONS_SOURCE" ]; then
+      for extension_dir in "$PI_EXTENSIONS_SOURCE"/*/; do
+        [ -d "$extension_dir" ] || continue
+        copy_directory_overwrite "$extension_dir" "$PI_EXTENSIONS_TARGET"
+        pi_extension_count=$((pi_extension_count + 1))
+      done
+    fi
+
+    ok "Installed $pi_extension_count Pi extensions to $PI_EXTENSIONS_TARGET"
+  else
+    warn "Skipped Pi extensions installation"
+    pi_extensions_skipped=true
+  fi
+fi
+
+# -----------------------------------------------------------------------------
+# Install Pi themes
+# -----------------------------------------------------------------------------
+
+pi_themes_skipped=false
+pi_theme_count=0
+
+if [ "$AGENT" = "pi" ]; then
+  echo ""
+  if ask_yes_no "Install Pi themes?"; then
+    info "Installing Pi themes..."
+
+    PI_THEMES_SOURCE="$TMPDIR_REMOTE/repo/$REPO_AGENT_DIR/themes"
+    PI_THEMES_TARGET="$AGENT_DIR/themes"
+    mkdir -p "$PI_THEMES_TARGET"
+
+    if [ -d "$PI_THEMES_SOURCE" ]; then
+      for theme_file in "$PI_THEMES_SOURCE"/*.json; do
+        [ -f "$theme_file" ] || continue
+        cp "$theme_file" "$PI_THEMES_TARGET/"
+        pi_theme_count=$((pi_theme_count + 1))
+      done
+    fi
+
+    ok "Installed $pi_theme_count Pi themes to $PI_THEMES_TARGET"
+  else
+    warn "Skipped Pi themes installation"
+    pi_themes_skipped=true
+  fi
 fi
 
 # -----------------------------------------------------------------------------
@@ -304,6 +415,18 @@ if [ "$configs_skipped" = true ]; then
   echo "  Config:  skipped"
 else
   echo "  Config:  $AGENT_DIR"
+fi
+if [ "$AGENT" = "pi" ]; then
+  if [ "$pi_extensions_skipped" = true ]; then
+    echo "  Extensions: skipped"
+  else
+    echo "  Extensions: $pi_extension_count installed to $AGENT_DIR/extensions"
+  fi
+  if [ "$pi_themes_skipped" = true ]; then
+    echo "  Themes: skipped"
+  else
+    echo "  Themes: $pi_theme_count installed to $AGENT_DIR/themes"
+  fi
 fi
 echo ""
 echo "Next steps:"

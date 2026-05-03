@@ -4,7 +4,7 @@
 #
 # Usage: bash check-updates.sh <skills-dir>
 #   skills-dir - path to locally installed skills
-#                (e.g. ~/.claude/skills or ~/.copilot/skills)
+#                (e.g. ~/.claude/skills, ~/.copilot/skills, or ~/.pi/agent/skills)
 #
 # Output: For each skill, prints one of:
 #   UP_TO_DATE:<skill-name>

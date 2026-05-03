@@ -1,6 +1,6 @@
 ---
 name: research-mode
-description: Toggle persistent research mode on/off. When on, a hook reminds the agent to keep the research document updated throughout the conversation. Use with a research topic to start, or with "off" to stop.
+description: Toggle persistent research mode on/off. When on, hook support can remind the agent to keep the research document updated throughout the conversation, with manual fallback if unavailable. Use with a research topic to start, or with "off" to stop.
 argument-hint: [topic or 'off' or empty]
 ---
 
@@ -14,12 +14,13 @@ argument-hint: [topic or 'off' or empty]
 
 ### Hook configuration by tool
 
-| Tool        | Hook config location      | Script format argument |
-| ----------- | ------------------------- | ---------------------- |
-| Claude Code | `~/.claude/settings.json` | _(none — default)_     |
-| Copilot     | `~/.copilot/hooks.json`   | `copilot`              |
+| Tool        | Hook config location                                      | Script format argument |
+| ----------- | --------------------------------------------------------- | ---------------------- |
+| Claude Code | `~/.claude/settings.json`                                 | _(none — default)_     |
+| Copilot     | `~/.copilot/hooks.json`                                   | `copilot`              |
+| Pi          | No equivalent standalone hook file in this starter config | _(manual fallback)_    |
 
-Both tools support `PostToolUse` and `SessionStart` hooks. Hooks should be installed globally so they work across all projects. The bundled scripts accept an optional format argument: pass `copilot` for Copilot's JSON output format, or omit for Claude Code's plain text output.
+Claude Code and Copilot support the bundled `PostToolUse` and `SessionStart` hook scripts directly. Pi does not use the same standalone hook configuration files in this repository's starter config, so on Pi this skill should skip hook installation/check scripts and rely on manual document updates unless the user has added an equivalent Pi extension.
 
 If you cannot determine which tool you are, ask the user.
 
@@ -29,7 +30,13 @@ If you cannot determine which tool you are, ask the user.
 
 If the argument is **"off"**, skip this step and go directly to Step 2.
 
-Otherwise, run `bash {skill-dir}/scripts/check-hooks.sh` (Claude Code) or `bash {skill-dir}/scripts/check-hooks.sh copilot` (Copilot) and parse the structured output.
+Otherwise:
+
+- If running in Claude Code, run `bash {skill-dir}/scripts/check-hooks.sh` and parse the structured output.
+- If running in Copilot, run `bash {skill-dir}/scripts/check-hooks.sh copilot` and parse the structured output.
+- If running in Pi, skip the automated hook check. Explain that this repository's Pi starter config does not currently expose equivalent research-mode reminder/cleanup hooks, so research mode will rely on manual update discipline only, then continue to Step 2.
+
+For Claude Code and Copilot:
 
 - **If `STATUS: YES`**: continue to Step 2.
 - **If `STATUS: NO` or `STATUS: PARTIAL`**: offer to install the missing hooks now (see Hook Setup below) **before** proceeding. If the user declines, note that research mode will rely on manual update discipline only — no PostToolUse reminders and no SessionStart cleanup — then continue.
@@ -66,12 +73,13 @@ Parse the arguments:
    If it already exists (from Step 3a), update the `topic:` line.
 2. Invoke the `persist` skill to begin researching the topic.
 3. After the `persist` skill creates the research document, update the flag file's `document:` line with the file path.
-4. Confirm to the user: "Research mode is on. I'll keep updating {document path} as we go. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session."
+4. Confirm to the user: "Research mode is on. I'll keep updating {document path} as we go. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
 5. If running in Claude Code, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+6. If running in Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
 
 ### Step 4: Keep the research document updated
 
-While research mode is active, the PostToolUse hook outputs reminders after each tool use. When you see these reminders:
+While research mode is active, if your harness has `PostToolUse` hook support configured, the hook outputs reminders after each tool use. When you see these reminders:
 
 - If you've learned something new since the last update, update the research document on disk
 - If you haven't learned anything new, carry on — don't update for the sake of it
@@ -84,13 +92,13 @@ While research mode is active, the PostToolUse hook outputs reminders after each
 
 ### Step 6: Session startup cleanup
 
-A `SessionStart` hook automatically clears stale flag files from previous sessions. No manual action needed.
+For harnesses with `SessionStart` hook support configured, stale flag files from previous sessions are cleared automatically. In Pi/manual mode, delete a stale `.ai/.active-mode` file before re-enabling research mode if one is left behind.
 
 ## Hook Setup
 
 Research mode relies on two hooks to function fully. Without the PostToolUse hook, only the `persist` skill's built-in continuous update behaviour and Step 4 above apply.
 
-Step 1 runs `scripts/check-hooks.sh` to verify configuration automatically. If that reports `STATUS: NO` or `STATUS: PARTIAL`, offer to add the missing hooks using the appropriate format below.
+Step 1 runs `scripts/check-hooks.sh` to verify configuration automatically for Claude Code and Copilot. If that reports `STATUS: NO` or `STATUS: PARTIAL`, offer to add the missing hooks using the appropriate format below.
 
 ### Claude Code
 
@@ -150,6 +158,10 @@ Merge into `~/.copilot/hooks.json`:
 
 > **Note**: The `copilot` argument tells the scripts to output JSON with `additionalContext` for Copilot's context injection format.
 
+### Pi
+
+This repository's Pi starter config does not currently include a direct equivalent of these research-mode reminder/cleanup hooks. On Pi, use research mode with manual document updates unless you have separately installed a Pi extension that provides equivalent reminders and stale-flag cleanup.
+
 ### Bundled scripts
 
 - [scripts/research-mode-hook.sh](scripts/research-mode-hook.sh) — PostToolUse reminder
@@ -158,6 +170,6 @@ Merge into `~/.copilot/hooks.json`:
 
 ## Notes
 
-- The flag file is automatically cleared at session startup via the SessionStart hook.
+- For harnesses with SessionStart hook support configured, the flag file is automatically cleared at session startup.
 - If you need to persist research mode across sessions, re-enable it with `/research-mode` at the start of the new session.
 - Both hook scripts are silent when the flag file doesn't exist — no impact on normal conversations.

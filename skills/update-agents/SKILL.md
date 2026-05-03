@@ -19,6 +19,7 @@ Check for updates to locally installed agents by fetching the latest from `kimgo
 | ----------- | ------------------------ |
 | Claude Code | `~/.claude/agents`       |
 | Copilot     | `~/.copilot/agents`      |
+| Pi          | `~/.pi/agent/agents`     |
 
 If you cannot determine which tool you are, ask the user.
 
@@ -34,6 +35,9 @@ First determine which tool is currently running this skill:
 - If you are Copilot, set:
   - `TARGET_DIR=~/.copilot/agents`
   - `SKILL_DIR=~/.copilot/skills/update-agents`
+- If you are Pi, set:
+  - `TARGET_DIR=~/.pi/agent/agents`
+  - `SKILL_DIR=~/.pi/agent/skills/update-agents`
 
 If you cannot determine which tool you are, ask the user before proceeding.
 

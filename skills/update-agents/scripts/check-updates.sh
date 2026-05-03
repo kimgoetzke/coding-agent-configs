@@ -4,7 +4,12 @@
 #
 # Usage: bash check-updates.sh <agents-dir>
 #   agents-dir - path to locally installed agents
-#                (e.g. ~/.claude/agents or ~/.copilot/agents)
+#                (e.g. ~/.claude/agents, ~/.copilot/agents, or ~/.pi/agent/agents)
+#
+# Optional environment:
+#   REPO_URL   Git URL or local repo path to clone for comparison
+#              (default: https://github.com/kimgoetzke/coding-agent-configs.git)
+#              Useful for deterministic local testing.
 #
 # Output: For each agent file, prints one of:
 #   UP_TO_DATE:<agent-file>
@@ -17,7 +22,7 @@
 set -euo pipefail
 
 AGENTS_DIR="${1:?Usage: check-updates.sh <agents-dir>}"
-REPO_URL="https://github.com/kimgoetzke/coding-agent-configs.git"
+REPO_URL="${REPO_URL:-https://github.com/kimgoetzke/coding-agent-configs.git}"
 
 case "$AGENTS_DIR" in
   *"/.claude/agents"|".claude/agents")
@@ -28,9 +33,13 @@ case "$AGENTS_DIR" in
     REMOTE_AGENTS_PATH=".copilot/agents"
     AGENT_GLOB="*.agent.md"
     ;;
+  *"/.pi/agent/agents"|".pi/agent/agents")
+    REMOTE_AGENTS_PATH=".pi/agent/agents"
+    AGENT_GLOB="*.md"
+    ;;
   *)
     echo "ERROR: Could not determine remote agent source for AGENTS_DIR='$AGENTS_DIR'"
-    echo "Expected a Claude agents path like ~/.claude/agents or a Copilot path like ~/.copilot/agents"
+    echo "Expected a Claude agents path like ~/.claude/agents, a Copilot path like ~/.copilot/agents, or a Pi path like ~/.pi/agent/agents"
     exit 1
     ;;
 esac

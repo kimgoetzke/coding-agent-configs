@@ -1,6 +1,6 @@
 ---
 name: planning-mode
-description: Toggle persistent planning mode on/off. When on, a hook reminds the agent to keep planning documents updated throughout the conversation. Combines the full planning workflow with persistent mode for long-running planning and implementation sessions. Use with a topic to start, or with "off" to stop.
+description: Toggle persistent planning mode on/off. When on, hook support can remind the agent to keep planning documents updated throughout the conversation, with manual fallback if unavailable. Combines the full planning workflow with persistent mode for long-running planning and implementation sessions. Use with a topic to start, or with "off" to stop.
 argument-hint: [topic or 'off' or empty]
 ---
 
@@ -12,14 +12,15 @@ argument-hint: [topic or 'off' or empty]
 
 ## Configuration
 
-The planning mode relies on a hook to remind the agent to keep the planning documents up-to-date.
+Planning mode works best with automated reminders, but it can still run with manual planning-doc updates when hook support is unavailable.
 
-| Tool        | Hook config location      | Script format argument |
-| ----------- | ------------------------- | ---------------------- |
-| Claude Code | `~/.claude/settings.json` | _(none — default)_     |
-| Copilot     | `~/.copilot/hooks.json`   | `copilot`              |
+| Tool        | Hook config location                                      | Script format argument |
+| ----------- | --------------------------------------------------------- | ---------------------- |
+| Claude Code | `~/.claude/settings.json`                                 | _(none — default)_     |
+| Copilot     | `~/.copilot/hooks.json`                                   | `copilot`              |
+| Pi          | No equivalent standalone hook file in this starter config | _(manual fallback)_    |
 
-Both tools support `PostToolUse` and `SessionStart` hooks. Hooks should be installed globally so they work across all projects. The bundled scripts accept an optional format argument: pass `copilot` for Copilot's JSON output format, or omit for Claude Code's plain text output.
+Claude Code and Copilot support the bundled `PostToolUse` and `SessionStart` hook scripts directly. Pi does not use the same standalone hook configuration files in this repository's starter config, so on Pi this skill should skip hook installation/check scripts and rely on manual planning-doc updates unless the user has added an equivalent Pi extension.
 
 If you cannot determine which tool you are, ask the user.
 
@@ -51,7 +52,13 @@ You must follow these steps in order:
 
 If the skill was invoked with the argument **"off"**, skip this step and go directly to Step 2.
 
-Otherwise, run `bash {skill-dir}/scripts/check-hooks.sh` (Claude Code) or `bash {skill-dir}/scripts/check-hooks.sh copilot` (Copilot) and parse the structured output.
+Otherwise:
+
+- If running in Claude Code, run `bash {skill-dir}/scripts/check-hooks.sh` and parse the structured output.
+- If running in Copilot, run `bash {skill-dir}/scripts/check-hooks.sh copilot` and parse the structured output.
+- If running in Pi, skip the automated hook check. Explain that this repository's Pi starter config does not currently expose equivalent planning-mode reminder/cleanup hooks, so planning mode will rely on manual update discipline only, then continue to Step 2.
+
+For Claude Code and Copilot:
 
 - **If `STATUS: YES`**: continue to Step 2.
 - **If `STATUS: NO` or `STATUS: PARTIAL`**: offer to install the missing hooks now (see [Hook Setup](#hook-setup) below) **before** proceeding. If the user declines, note that planning mode will rely on manual update discipline only — no PostToolUse reminders and no SessionStart cleanup — then continue.
@@ -117,16 +124,17 @@ You must use the starting templates (see [Planning files](#planning-files)) when
 ### Step 7: Respond
 
 1. Return a summarised version of the plan to the user. Highlight if there are unresolved questions or if the plan is ready for implementation.
-2. Confirm to the user: "Planning mode is on. I'll keep updating the planning docs in {plan folder path} as we go. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session."
+2. Confirm to the user: "Planning mode is on. I'll keep updating the planning docs in {plan folder path} as we go. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
 3. Recommend to the user that they rename this conversation:
    - If running in Claude Code or GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation."
+   - If running in Pi, recommend: "You can run `/name {task name}` to name this conversation."
    - Otherwise, recommend: "Consider renaming this conversation to `{task name}` if your tool supports it."
 
 ### Step 8: Keep planning documents updated
 
 **This step repeats until the planning mode is off.**
 
-While planning mode is active, the PostToolUse hook outputs reminders after each tool use. When you see these reminders:
+While planning mode is active, if your harness has `PostToolUse` hook support configured, the hook outputs reminders after each tool use. When you see these reminders:
 
 - If you've learned something new since the last update, update the relevant planning document(s) on disk
 - If you haven't learned anything new, carry on — don't update for the sake of it
@@ -142,7 +150,7 @@ When `/planning-mode off` is invoked:
 
 ### Step 10: Session startup cleanup
 
-As a fallback, a `SessionStart` hook automatically clears stale flag files from previous sessions. No manual action needed.
+For harnesses with `SessionStart` hook support configured, stale flag files from previous sessions are cleared automatically. In Pi/manual mode, delete a stale `.ai/.active-mode` file before re-enabling planning mode if one is left behind.
 
 ## Critical rules
 
@@ -220,7 +228,7 @@ AFTER 3 FAILURES: Escalate to User
 
 Planning mode relies on two hooks to function fully. Without the PostToolUse hook, only the manual update discipline (Step 8) applies.
 
-Step 1 runs `scripts/check-hooks.sh` to verify configuration automatically. If that reports `STATUS: NO` or `STATUS: PARTIAL`, offer to add the missing hooks using the appropriate format below.
+Step 1 runs `scripts/check-hooks.sh` to verify configuration automatically for Claude Code and Copilot. If that reports `STATUS: NO` or `STATUS: PARTIAL`, offer to add the missing hooks using the appropriate format below.
 
 ### Claude Code
 
@@ -280,6 +288,10 @@ Merge into `~/.copilot/hooks.json`:
 
 > **Note**: The `copilot` argument tells the scripts to output JSON with `additionalContext` for Copilot's context injection format.
 
+### Pi
+
+This repository's Pi starter config does not currently include a direct equivalent of these planning-mode reminder/cleanup hooks. On Pi, use planning mode with manual document updates unless you have separately installed a Pi extension that provides equivalent reminders and stale-flag cleanup.
+
 ### Bundled scripts
 
 - [scripts/planning-mode-hook.sh](scripts/planning-mode-hook.sh) — PostToolUse reminder
@@ -296,6 +308,6 @@ Merge into `~/.copilot/hooks.json`:
 ## Notes
 
 - **Mutual exclusivity**: There are other modes and they are mutually exclusive. They all share the `.ai/.active-mode` flag file. If another mode is active (check `mode:` field in `.ai/.active-mode`), disable it before enabling planning-mode.
-- The flag file is automatically cleared at session startup via the SessionStart hook.
+- For harnesses with SessionStart hook support configured, the flag file is automatically cleared at session startup.
 - If you need to persist planning mode across sessions, re-enable it with `/planning-mode` at the start of the new session.
 - Both hook scripts are silent when the flag file doesn't exist — no impact on normal conversations.

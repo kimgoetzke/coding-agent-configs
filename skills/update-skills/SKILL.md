@@ -19,6 +19,7 @@ Check for updates to locally installed skills by fetching the latest from `kimgo
 | ----------- | ------------------------ |
 | Claude Code | `~/.claude/skills`       |
 | Copilot     | `~/.copilot/skills`      |
+| Pi          | `~/.pi/agent/skills`     |
 
 If you cannot determine which tool you are, ask the user.
 
@@ -28,15 +29,19 @@ If you cannot determine which tool you are, ask the user.
 
 Set the target directory based on the table above. Use the variable `TARGET_DIR` in subsequent steps.
 
+Also resolve `SKILL_DIR` to the absolute path of this locally installed skill directory. Typical values:
+
+- Claude Code: `~/.claude/skills/update-skills`
+- Copilot: `~/.copilot/skills/update-skills`
+- Pi: `~/.pi/agent/skills/update-skills`
+
 ### 2. Check for updates
 
 Run the check script:
 
 ```bash
-bash <skill-directory>/scripts/check-updates.sh "$TARGET_DIR"
+bash "$SKILL_DIR/scripts/check-updates.sh" "$TARGET_DIR"
 ```
-
-> **Copilot note**: `<skill-directory>` is a Claude Code placeholder. If you are Copilot, use the absolute path to this skill's `scripts/` directory in your local skills instead, i.e. `~/.copilot/skills/update-skills/scripts/check-updates.sh`.
 
 ### 3. Parse the output
 
@@ -64,10 +69,8 @@ Skills that exist locally but not in the remote repo are ignored.
 For each skill the user approves, run:
 
 ```bash
-bash <skill-directory>/scripts/apply-update.sh "$TARGET_DIR" <skill-name>
+bash "$SKILL_DIR/scripts/apply-update.sh" "$TARGET_DIR" <skill-name>
 ```
-
-> **Copilot note**: Same as above — replace `<skill-directory>` with `~/.copilot/skills/update-skills`.
 
 Report success or failure for each.
 

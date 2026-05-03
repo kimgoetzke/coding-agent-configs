@@ -3,12 +3,17 @@
 # to the local agents directory, overwriting any existing file.
 #
 # Usage: bash apply-update.sh <agents-dir> <agent-file>
+#
+# Optional environment:
+#   REPO_URL   Git URL or local repo path to clone from
+#              (default: https://github.com/kimgoetzke/coding-agent-configs.git)
+#              Useful for deterministic local testing.
 
 set -euo pipefail
 
 AGENTS_DIR="${1:?Usage: apply-update.sh <agents-dir> <agent-file>}"
 AGENT_FILE="${2:?Usage: apply-update.sh <agents-dir> <agent-file>}"
-REPO_URL="https://github.com/kimgoetzke/coding-agent-configs.git"
+REPO_URL="${REPO_URL:-https://github.com/kimgoetzke/coding-agent-configs.git}"
 
 # Choose the matching remote agent directory based on the target local agents dir
 case "$AGENTS_DIR" in
@@ -18,8 +23,12 @@ case "$AGENTS_DIR" in
   *"/.copilot/agents"|".copilot/agents")
     REMOTE_AGENT_DIR=".copilot/agents"
     ;;
+  *"/.pi/agent/agents"|".pi/agent/agents")
+    REMOTE_AGENT_DIR=".pi/agent/agents"
+    ;;
   *)
     echo "ERROR: Could not determine remote agent directory from '$AGENTS_DIR'"
+    echo "Expected a Claude agents path like ~/.claude/agents, a Copilot path like ~/.copilot/agents, or a Pi path like ~/.pi/agent/agents"
     exit 1
     ;;
 esac
