@@ -9,10 +9,14 @@ Global Pi extension that intercepts agent-initiated `bash` tool calls and classi
 
 - Extension folder: `~/.pi/agent/extensions/command-policy/`
 - Startup entry shown by Pi: `command-policy.ts`
-- Preferred project policy: `.pi/command-policy.json5`
-- Optional global fallback policy: `~/.pi/agent/command-policy.json5`
+- Project policy: `.pi/command-policy.json5`
+- Optional global policy: `~/.pi/agent/command-policy.json5`
 
-If both policy files exist, the project-local file wins.
+If both policy files exist, they are merged:
+- project-local `block` and `confirm` rules are applied alongside global rules
+- project-local rules take precedence over global rules at the same severity
+- project-local `downgrade` rules can lower the effective severity of matching global rules
+- project-local direct `block` / `confirm` rules do **not** weaken matching global rules by themselves
 
 ## Reload
 
@@ -26,20 +30,24 @@ The policy file is read on demand, so command changes should take effect immedia
 
 ## Policy format
 
+### Global policy
+
+Use the global policy for your default machine-wide restrictions.
+
 ```json5
 {
   version: 1,
 
   block: [
-    "rm -rf /",
+    "python*",
     {
-      match: "git push --force*",
-      note: "Force-pushes are never allowed here. Create a new branch or use a normal push.",
+      match: "pnpm add *",
+      note: "Dependency additions should be reviewed before they run.",
     },
   ],
 
   confirm: [
-    "sudo *",
+    "pnpm remove *",
     {
       match: "kubectl delete *",
       note: "Double-check cluster, namespace, and target before continuing.",
@@ -48,9 +56,69 @@ The policy file is read on demand, so command changes should take effect immedia
 }
 ```
 
-Notes:
+### Project policy
+
+Use the project policy for project-local restrictions **and** for explicit downgrades of inherited global rules.
+
+```json5
+{
+  version: 1,
+
+  block: [
+    "git push --force*",
+  ],
+
+  confirm: [
+    {
+      match: "pnpm add *",
+      note: "Dependency changes are expected in this repository, but still warrant approval.",
+    },
+  ],
+
+  downgrade: {
+    confirm: [
+      "pnpm add *",
+    ],
+    allow: [
+      "python*",
+      "pnpm remove *",
+    ],
+  },
+}
+```
+
+In the example above:
+- a global `block` on `pnpm add *` is lowered to `confirm` in this project
+- a global `block` on `python*` is lowered to `allow` in this project
+- a global `confirm` on `pnpm remove *` is lowered to `allow` in this project
+- the project can still add its own direct restrictions such as `git push --force*`
+
+## Rule semantics
+
 - string rules are exact matches after normalization unless they contain `*`
 - `*` works like a wildcard inside the normalized atomic command string
-- `block` wins over `confirm`
 - `block.note` should be remediation guidance
 - `confirm.note` should be an approval hint
+- `downgrade.confirm` lowers matching global `block` rules to `confirm`
+- `downgrade.allow` lowers matching global `block` or `confirm` rules to `allow`
+
+## Effective precedence
+
+For a matching atomic command, the effective decision is determined in this order:
+1. project `block`
+2. global `block`, unless project `downgrade.confirm` or `downgrade.allow` matches
+3. project `confirm`
+4. global `block` downgraded by project `downgrade.confirm`
+5. global `confirm`, unless project `downgrade.allow` matches
+6. allow
+
+This means:
+- project rules can tighten behavior directly
+- weakening inherited global behavior must be explicit via `downgrade`
+- a project `confirm` rule does not silently override a matching global `block`
+
+## Migration notes
+
+- `version` remains `1`; the `downgrade` section is an additive extension to the existing schema
+- existing global-only or project-only policy files continue to work unchanged
+- if you previously relied on a project policy replacing the global policy entirely, review the merged result and add `downgrade` entries where the project needs to relax inherited global rules

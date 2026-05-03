@@ -17,23 +17,45 @@ export function getGlobalPolicyPath(): string {
 
 export type RuleInput = string | { match: string; note?: string };
 
+export interface DowngradeConfig {
+  confirm?: RuleInput[];
+  allow?: RuleInput[];
+}
+
 export interface PolicyConfig {
   version: 1;
   block?: RuleInput[];
   confirm?: RuleInput[];
+  downgrade?: DowngradeConfig;
 }
+
+export type RuleSource = "global" | "project" | "inline";
 
 export interface ResolvedRule {
   kind: "block" | "confirm";
+  source: RuleSource;
+  match: string;
+  note?: string;
+  pattern: RegExp;
+}
+
+export interface ResolvedDowngradeRule {
+  level: "confirm" | "allow";
+  source: RuleSource;
   match: string;
   note?: string;
   pattern: RegExp;
 }
 
 export interface ResolvedPolicy {
+  resolved: true;
   version: 1;
   block: ResolvedRule[];
   confirm: ResolvedRule[];
+  downgrade: {
+    confirm: ResolvedDowngradeRule[];
+    allow: ResolvedDowngradeRule[];
+  };
 }
 
 export type PolicyLoadResult =
@@ -63,19 +85,22 @@ export function getPolicyPaths(cwd: string): { project: string; global: string }
 
 export function loadPolicyForCwd(cwd: string): PolicyLoadResult {
   const { project, global } = getPolicyPaths(cwd);
-  const sourcePath = existsSync(project) ? project : existsSync(global) ? global : undefined;
+  const hasProject = existsSync(project);
+  const hasGlobal = existsSync(global);
+  const sourcePath = hasProject ? project : hasGlobal ? global : undefined;
 
   if (!sourcePath) {
     return { kind: "none" };
   }
 
   try {
-    const raw = readFileSync(sourcePath, "utf8");
-    const parsed = JSON5.parse(raw) as unknown;
+    const projectPolicy = hasProject ? parsePolicyFile(project, "project") : undefined;
+    const globalPolicy = hasGlobal ? parsePolicyFile(global, "global") : undefined;
+
     return {
       kind: "loaded",
       sourcePath,
-      policy: resolvePolicy(parsed, sourcePath),
+      policy: mergePolicies(projectPolicy, globalPolicy),
     };
   } catch (error) {
     return {
@@ -91,25 +116,55 @@ export function classifyCommand(command: string, policy: PolicyConfig | Resolved
   const atomicCommands = collectAtomicCommands(command);
 
   for (const atomicCommand of atomicCommands) {
-    const rule = resolved.block.find((candidate) => candidate.pattern.test(atomicCommand));
-    if (rule) {
+    const projectBlock = findMatchingRule(resolved.block, atomicCommand, (rule) => rule.source !== "global");
+    if (projectBlock) {
       return {
         kind: "block",
         atomicCommands,
         atomicCommand,
-        rule: pickRule(rule),
+        rule: pickRule(projectBlock),
       };
     }
-  }
 
-  for (const atomicCommand of atomicCommands) {
-    const rule = resolved.confirm.find((candidate) => candidate.pattern.test(atomicCommand));
-    if (rule) {
+    const globalBlock = findMatchingRule(resolved.block, atomicCommand, (rule) => rule.source === "global");
+    const projectConfirm = findMatchingRule(resolved.confirm, atomicCommand, (rule) => rule.source !== "global");
+    const globalConfirm = findMatchingRule(resolved.confirm, atomicCommand, (rule) => rule.source === "global");
+    const downgradeAllow = findMatchingDowngrade(resolved.downgrade.allow, atomicCommand);
+    const downgradeConfirm = findMatchingDowngrade(resolved.downgrade.confirm, atomicCommand);
+
+    if (globalBlock && !downgradeAllow && !downgradeConfirm) {
+      return {
+        kind: "block",
+        atomicCommands,
+        atomicCommand,
+        rule: pickRule(globalBlock),
+      };
+    }
+
+    if (projectConfirm) {
       return {
         kind: "confirm",
         atomicCommands,
         atomicCommand,
-        rule: pickRule(rule),
+        rule: pickRule(projectConfirm),
+      };
+    }
+
+    if (globalBlock && !downgradeAllow && downgradeConfirm) {
+      return {
+        kind: "confirm",
+        atomicCommands,
+        atomicCommand,
+        rule: pickRule(globalBlock),
+      };
+    }
+
+    if (globalConfirm && !downgradeAllow) {
+      return {
+        kind: "confirm",
+        atomicCommands,
+        atomicCommand,
+        rule: pickRule(globalConfirm),
       };
     }
   }
@@ -131,7 +186,7 @@ export function collectAtomicCommands(command: string): string[] {
   }
 }
 
-function resolvePolicy(input: unknown, sourcePath: string): ResolvedPolicy {
+function resolvePolicy(input: unknown, sourcePath: string, source: RuleSource = "inline"): ResolvedPolicy {
   if (!input || typeof input !== "object" || Array.isArray(input)) {
     throw new Error(`Policy file ${sourcePath} must contain an object.`);
   }
@@ -142,19 +197,26 @@ function resolvePolicy(input: unknown, sourcePath: string): ResolvedPolicy {
   }
 
   return {
+    resolved: true,
     version: POLICY_VERSION,
-    block: resolveRules(policy.block, "block", sourcePath),
-    confirm: resolveRules(policy.confirm, "confirm", sourcePath),
+    block: resolveRules(policy.block, "block", sourcePath, source),
+    confirm: resolveRules(policy.confirm, "confirm", sourcePath, source),
+    downgrade: resolveDowngrade(policy.downgrade, sourcePath, source),
   };
 }
 
-function resolveRules(input: RuleInput[] | undefined, kind: "block" | "confirm", sourcePath: string): ResolvedRule[] {
+function resolveRules(
+  input: RuleInput[] | undefined,
+  kind: "block" | "confirm",
+  sourcePath: string,
+  source: RuleSource,
+): ResolvedRule[] {
   if (input === undefined) return [];
   if (!Array.isArray(input)) {
     throw new Error(`Policy file ${sourcePath} field \`${kind}\` must be an array.`);
   }
 
-  return input.map((rule, index) => resolveRule(rule, kind, sourcePath, index));
+  return input.map((rule, index) => resolveRule(rule, kind, sourcePath, index, source));
 }
 
 function resolveRule(
@@ -162,10 +224,11 @@ function resolveRule(
   kind: "block" | "confirm",
   sourcePath: string,
   index: number,
+  source: RuleSource,
 ): ResolvedRule {
   if (typeof input === "string") {
     const match = normalizeRuleMatch(input, sourcePath, kind, index);
-    return { kind, match, pattern: compilePattern(match) };
+    return { kind, source, match, pattern: compilePattern(match) };
   }
 
   if (!input || typeof input !== "object" || Array.isArray(input)) {
@@ -174,13 +237,13 @@ function resolveRule(
 
   const match = normalizeRuleMatch(input.match, sourcePath, kind, index);
   const note = normalizeRuleNote(input.note, sourcePath, kind, index);
-  return { kind, match, note, pattern: compilePattern(match) };
+  return { kind, source, match, note, pattern: compilePattern(match) };
 }
 
 function normalizeRuleMatch(
   input: unknown,
   sourcePath: string,
-  kind: "block" | "confirm",
+  kind: "block" | "confirm" | "downgrade.confirm" | "downgrade.allow",
   index: number,
 ): string {
   if (typeof input !== "string") {
@@ -198,7 +261,7 @@ function normalizeRuleMatch(
 function normalizeRuleNote(
   input: unknown,
   sourcePath: string,
-  kind: "block" | "confirm",
+  kind: "block" | "confirm" | "downgrade.confirm" | "downgrade.allow",
   index: number,
 ): string | undefined {
   if (input === undefined) return undefined;
@@ -208,6 +271,60 @@ function normalizeRuleNote(
 
   const note = input.trim();
   return note || undefined;
+}
+
+function resolveDowngrade(
+  input: DowngradeConfig | undefined,
+  sourcePath: string,
+  source: RuleSource,
+): ResolvedPolicy["downgrade"] {
+  if (input === undefined) {
+    return { confirm: [], allow: [] };
+  }
+
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error(`Policy file ${sourcePath} field \`downgrade\` must be an object.`);
+  }
+
+  return {
+    confirm: resolveDowngradeRules(input.confirm, "confirm", sourcePath, source),
+    allow: resolveDowngradeRules(input.allow, "allow", sourcePath, source),
+  };
+}
+
+function resolveDowngradeRules(
+  input: RuleInput[] | undefined,
+  level: "confirm" | "allow",
+  sourcePath: string,
+  source: RuleSource,
+): ResolvedDowngradeRule[] {
+  if (input === undefined) return [];
+  if (!Array.isArray(input)) {
+    throw new Error(`Policy file ${sourcePath} field \`downgrade.${level}\` must be an array.`);
+  }
+
+  return input.map((rule, index) => resolveDowngradeRule(rule, level, sourcePath, index, source));
+}
+
+function resolveDowngradeRule(
+  input: RuleInput,
+  level: "confirm" | "allow",
+  sourcePath: string,
+  index: number,
+  source: RuleSource,
+): ResolvedDowngradeRule {
+  if (typeof input === "string") {
+    const match = normalizeRuleMatch(input, sourcePath, `downgrade.${level}`, index);
+    return { level, source, match, pattern: compilePattern(match) };
+  }
+
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    throw new Error(`Policy file ${sourcePath} field \`downgrade.${level}\` contains an invalid rule at index ${index}.`);
+  }
+
+  const match = normalizeRuleMatch(input.match, sourcePath, `downgrade.${level}`, index);
+  const note = normalizeRuleNote(input.note, sourcePath, `downgrade.${level}`, index);
+  return { level, source, match, note, pattern: compilePattern(match) };
 }
 
 function compilePattern(match: string): RegExp {
@@ -228,9 +345,41 @@ function pickRule(rule: ResolvedRule): Pick<ResolvedRule, "kind" | "match" | "no
 }
 
 function isResolvedPolicy(policy: PolicyConfig | ResolvedPolicy): policy is ResolvedPolicy {
-  return Array.isArray((policy as ResolvedPolicy).block) && typeof (policy as ResolvedPolicy).block[0]?.pattern?.test === "function"
-    ? true
-    : Array.isArray((policy as ResolvedPolicy).confirm) && typeof (policy as ResolvedPolicy).confirm[0]?.pattern?.test === "function";
+  return (policy as ResolvedPolicy).resolved === true;
+}
+
+function parsePolicyFile(sourcePath: string, source: RuleSource): ResolvedPolicy {
+  const raw = readFileSync(sourcePath, "utf8");
+  const parsed = JSON5.parse(raw) as unknown;
+  return resolvePolicy(parsed, sourcePath, source);
+}
+
+function mergePolicies(projectPolicy?: ResolvedPolicy, globalPolicy?: ResolvedPolicy): ResolvedPolicy {
+  return {
+    resolved: true,
+    version: POLICY_VERSION,
+    block: [...(projectPolicy?.block ?? []), ...(globalPolicy?.block ?? [])],
+    confirm: [...(projectPolicy?.confirm ?? []), ...(globalPolicy?.confirm ?? [])],
+    downgrade: {
+      confirm: [...(projectPolicy?.downgrade.confirm ?? [])],
+      allow: [...(projectPolicy?.downgrade.allow ?? [])],
+    },
+  };
+}
+
+function findMatchingRule(
+  rules: ResolvedRule[],
+  atomicCommand: string,
+  predicate: (rule: ResolvedRule) => boolean,
+): ResolvedRule | undefined {
+  return rules.find((rule) => predicate(rule) && rule.pattern.test(atomicCommand));
+}
+
+function findMatchingDowngrade(
+  rules: ResolvedDowngradeRule[],
+  atomicCommand: string,
+): ResolvedDowngradeRule | undefined {
+  return rules.find((rule) => rule.pattern.test(atomicCommand));
 }
 
 function uniqueNormalized(commands: string[]): string[] {

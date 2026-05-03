@@ -101,4 +101,54 @@ describe("handleBashCommandPolicy", () => {
         'Command requires approval by command policy: matched confirm rule "sudo *" for atomic command "sudo systemctl restart nginx", but approval UI is unavailable in this mode. Do not retry the same command unchanged. Approval hint: Check whether elevated privileges are truly necessary.',
     });
   });
+
+  it("prompts for approval when a global block is downgraded to confirm by project policy", async () => {
+    const confirm = vi.fn(async () => true);
+
+    const result = await handleBashCommandPolicy(
+      "pnpm add zod",
+      { cwd: "/tmp/project", hasUI: true },
+      {
+        loadPolicy: () => ({
+          kind: "loaded",
+          sourcePath: "/tmp/project/.pi/command-policy.json5",
+          policy: {
+            resolved: true,
+            version: 1,
+            block: [
+              {
+                kind: "block",
+                source: "global",
+                match: "pnpm add *",
+                note: "Global dependency additions require scrutiny.",
+                pattern: /^pnpm add .*$/,
+              },
+            ],
+            confirm: [],
+            downgrade: {
+              confirm: [
+                {
+                  level: "confirm",
+                  source: "project",
+                  match: "pnpm add *",
+                  pattern: /^pnpm add .*$/,
+                },
+              ],
+              allow: [],
+            },
+          },
+        }),
+        confirm,
+      },
+    );
+
+    expect(result).toBeUndefined();
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(confirm.mock.calls[0]?.[0]).toEqual({
+      fullCommand: "pnpm add zod",
+      ruleMatch: "pnpm add *",
+      atomicCommand: "pnpm add zod",
+      note: "Global dependency additions require scrutiny.",
+    });
+  });
 });
