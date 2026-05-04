@@ -1,0 +1,10 @@
+{
+  "name": "pi-message-timestamps-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
