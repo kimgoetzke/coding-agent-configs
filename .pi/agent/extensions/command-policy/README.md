@@ -1,9 +1,22 @@
 # Pi command policy extension
 
 Global Pi extension that intercepts agent-initiated `bash` tool calls and classifies them as:
+
 - allow
 - confirm
 - block
+
+## Example
+
+### Approval prompt
+
+Example approval prompt for a rule that matches `rm *` for `confirm`:
+
+![Approval prompt screenshot](./screenshot-approval.png)
+
+Example `block` response with custom guidance note:
+
+![Block screenshot](./screenshot-block.png)
 
 ## Install location
 
@@ -13,6 +26,7 @@ Global Pi extension that intercepts agent-initiated `bash` tool calls and classi
 - Optional global policy: `~/.pi/agent/command-policy.json5`
 
 If both policy files exist, they are merged:
+
 - project-local `block` and `confirm` rules are applied alongside global rules
 - project-local rules take precedence over global rules at the same severity
 - project-local `downgrade` rules can lower the effective severity of matching global rules
@@ -64,9 +78,7 @@ Use the project policy for project-local restrictions **and** for explicit downg
 {
   version: 1,
 
-  block: [
-    "git push --force*",
-  ],
+  block: ["git push --force*"],
 
   confirm: [
     {
@@ -76,18 +88,14 @@ Use the project policy for project-local restrictions **and** for explicit downg
   ],
 
   downgrade: {
-    confirm: [
-      "pnpm add *",
-    ],
-    allow: [
-      "python*",
-      "pnpm remove *",
-    ],
+    confirm: ["pnpm add *"],
+    allow: ["python*", "pnpm remove *"],
   },
 }
 ```
 
 In the example above:
+
 - a global `block` on `pnpm add *` is lowered to `confirm` in this project
 - a global `block` on `python*` is lowered to `allow` in this project
 - a global `confirm` on `pnpm remove *` is lowered to `allow` in this project
@@ -105,6 +113,7 @@ In the example above:
 ## Effective precedence
 
 For a matching atomic command, the effective decision is determined in this order:
+
 1. project `block`
 2. global `block`, unless project `downgrade.confirm` or `downgrade.allow` matches
 3. project `confirm`
@@ -113,6 +122,7 @@ For a matching atomic command, the effective decision is determined in this orde
 6. allow
 
 This means:
+
 - project rules can tighten behavior directly
 - weakening inherited global behavior must be explicit via `downgrade`
 - a project `confirm` rule does not silently override a matching global `block`
