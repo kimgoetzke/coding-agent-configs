@@ -3,3 +3,5 @@
 .ai/review/*
 .claude/settings.local.json
 **/node_modules/*
+.pi/agent/extensions/pi-mcp-adapter/*
+.pi/agent/extensions/usage-statistics/*
