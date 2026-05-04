@@ -55,7 +55,7 @@ class CommandApprovalDialog implements Component {
 
     const bodyLines = [
       ...this.renderParagraph(
-        "This command matched a policy rule and needs one-time approval before it can run.",
+        "This command matched a policy rule and needs approval before it can run.",
         innerWidth,
       ),
       "",
@@ -130,7 +130,7 @@ class CommandApprovalDialog implements Component {
 
     return [
       this.theme.fg("muted", label),
-      ...wrapped.map((line) => this.theme.bg("toolErrorBg", ` ${this.pad(line, contentWidth)} `)),
+      ...wrapped.map((line) => this.theme.bg("toolPendingBg", ` ${this.pad(line, contentWidth)} `)),
     ];
   }
 
