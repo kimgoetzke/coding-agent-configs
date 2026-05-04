@@ -11,7 +11,7 @@
       "Bash(bash */skills/update-skills/scripts/check-updates.sh *)",
       "Bash(bash */skills/update-skills/scripts/apply-update.sh *)",
       "Bash(bash */skills/update-agents/scripts/check-updates.sh *)",
-      "Bash(bash */skills/update-agents/scripts/apply-updates.sh *)",
+      "Bash(bash */skills/update-agents/scripts/apply-update.sh *)",
       "Bash(bash */skills/planning-mode/scripts/check-hooks.sh)",
       "Bash(bash */skills/planning-mode/scripts/clear-mode.sh:*)",
       "Bash(bash */skills/planning-mode/scripts/planning-mode-hook.sh:*)",
@@ -43,7 +43,13 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:docs.github.com)",
       "WebFetch(domain:github.blog)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:pi.dev)",
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:support.claude.com)",
+      "WebFetch(domain:ai.google.dev)",
+      "WebFetch(domain:api-docs.deepseek.com)",
+      "WebFetch(domain:docs.x.ai)"
     ],
     "deny": [
       "Bash(git push *)",
