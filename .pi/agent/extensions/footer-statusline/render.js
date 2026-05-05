@@ -47,6 +47,24 @@ export function selectContextToken(percent) {
   return "muted";
 }
 
+const THINKING_TOKENS = {
+  off: "thinkingOff",
+  minimal: "thinkingMinimal",
+  low: "thinkingLow",
+  medium: "thinkingMedium",
+  high: "thinkingHigh",
+  xhigh: "thinkingXhigh",
+};
+
+/**
+ * Return the theme colour token for a given thinking level.
+ * Falls back to "muted" for unrecognised values.
+ * @param {string} level – one of off | minimal | low | medium | high | xhigh
+ */
+export function thinkingToken(level) {
+  return THINKING_TOKENS[level] ?? "muted";
+}
+
 /**
  * Build the plain-text context display string, e.g. "7.4%/264k".
  * @param {number | null} percent  – context percentage, or null if unknown

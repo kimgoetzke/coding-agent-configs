@@ -5,6 +5,7 @@ import {
   truncatePlain,
   selectContextToken,
   buildContextDisplay,
+  thinkingToken,
 } from "./render.js";
 
 const HOME = process.env.HOME || process.env.USERPROFILE || "";
@@ -16,7 +17,7 @@ function fg(theme, token, text) {
 /**
  * Build the pwd row.
  *
- * Format: <path muted>  <icon accent><branch accent>
+ * Format: <path accent>  <icon syntaxVariable><branch syntaxVariable>
  * The session name is intentionally omitted because the conversation-statusline
  * extension already shows it in the editor chrome's top border.
  */
@@ -53,13 +54,14 @@ function renderPwdLine(width, theme, cwd, branch) {
  * Right side: [(<provider>) ]<model>[ • <thinking>]
  *
  * Colour coding:
- *   ↑ input   → syntaxNumber (blue)
- *   ↓ output  → success (green)
- *   R/W cache → muted
- *   cost      → muted
- *   ctx%      → muted / warning / error by threshold (<40 / 40-59 / ≥60)
- *   model     → syntaxNumber
- *   thinking  → muted
+ *   ↑ input      → syntaxNumber
+ *   ↓ output     → success
+ *   R/W cache    → muted
+ *   cost         → muted
+ *   ctx%         → muted / warning / error by threshold (<40 / 40-59 / ≥60)
+ *   model        → warning
+ *   • separator  → muted
+ *   thinking level value → thinkingOff / thinkingLow / … (level-specific token)
  */
 function renderStatsLine(width, theme, ctx, pi, footerData) {
   // Accumulate cumulative token usage from ALL session entries
@@ -107,11 +109,23 @@ function renderStatsLine(width, theme, ctx, pi, footerData) {
 
   // Build right side — model name + optional thinking suffix
   const modelId = ctx.model?.id ?? "no-model";
-  let thinkingSuffix = "";
+  // thinkingMuted: the " • " separator, always muted
+  // thinkingValue: the level text ("thinking off", "low", "medium", …) coloured by thinkingToken
+  let thinkingMuted = "";
+  let thinkingValue = "";
+  let thinkingColourToken = "muted";
   if (ctx.model?.reasoning) {
     const level = pi.getThinkingLevel() ?? "off";
-    thinkingSuffix = level === "off" ? " • thinking off" : ` • ${level}`;
+    thinkingColourToken = thinkingToken(level);
+    if (level === "off") {
+      thinkingMuted = " • ";
+      thinkingValue = "thinking off";
+    } else {
+      thinkingMuted = " • ";
+      thinkingValue = level;
+    }
   }
+  const thinkingSuffix = thinkingMuted + thinkingValue;
 
   // Optionally prepend provider when multiple providers are active
   let providerPrefix = "";
@@ -130,11 +144,12 @@ function renderStatsLine(width, theme, ctx, pi, footerData) {
   // Colourize left side
   const leftColoured = segments.map(([text, token]) => fg(theme, token, text)).join(" ");
 
-  // Colourize right side (provider muted, model syntaxNumber, thinking muted)
+  // Colourize right side: provider muted, model warning, "•" separator muted, level word coloured
   const rightColoured =
     (providerPrefix ? fg(theme, "muted", providerPrefix) : "") +
-    fg(theme, "syntaxNumber", modelId) +
-    (thinkingSuffix ? fg(theme, "muted", thinkingSuffix) : "");
+    fg(theme, "warning", modelId) +
+    (thinkingMuted ? fg(theme, "muted", thinkingMuted) : "") +
+    (thinkingValue ? fg(theme, thinkingColourToken, thinkingValue) : "");
 
   // Layout: right-align the model info
   const minPadding = 2;

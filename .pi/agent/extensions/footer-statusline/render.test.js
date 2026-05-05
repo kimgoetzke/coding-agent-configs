@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { formatTokens, truncatePlain, selectContextToken, buildContextDisplay } from "./render.js";
+import { formatTokens, truncatePlain, selectContextToken, buildContextDisplay, thinkingToken } from "./render.js";
 
 // ---------------------------------------------------------------------------
 // formatTokens
@@ -58,8 +58,8 @@ test("truncatePlain: appends ellipsis when truncating", () => {
 // selectContextToken
 // ---------------------------------------------------------------------------
 
-test("selectContextToken: null (unknown) → muted", () => {
-  assert.equal(selectContextToken(null), "muted");
+test("selectContextToken: null (unknown) → success", () => {
+  assert.equal(selectContextToken(null), "success");
 });
 
 test("selectContextToken: below 40 % → muted", () => {
@@ -91,4 +91,23 @@ test("buildContextDisplay: known percent", () => {
 
 test("buildContextDisplay: rounds percent to one decimal", () => {
   assert.equal(buildContextDisplay(39.95, 100000), "40.0%/100k");
+});
+
+// ---------------------------------------------------------------------------
+// thinkingToken
+// ---------------------------------------------------------------------------
+
+test("thinkingToken: maps all known levels to dedicated theme tokens", () => {
+  assert.equal(thinkingToken("off"), "thinkingOff");
+  assert.equal(thinkingToken("minimal"), "thinkingMinimal");
+  assert.equal(thinkingToken("low"), "thinkingLow");
+  assert.equal(thinkingToken("medium"), "thinkingMedium");
+  assert.equal(thinkingToken("high"), "thinkingHigh");
+  assert.equal(thinkingToken("xhigh"), "thinkingXhigh");
+});
+
+test("thinkingToken: unknown level falls back to muted", () => {
+  assert.equal(thinkingToken("unknown"), "muted");
+  assert.equal(thinkingToken(""), "muted");
+  assert.equal(thinkingToken(undefined), "muted");
 });

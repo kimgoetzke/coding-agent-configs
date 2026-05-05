@@ -26,7 +26,7 @@
     "borderMuted": "base04",
     "success": "base0B",
     "error": "base08",
-    "warning": "base0A",
+    "warning": "base09",
     "muted": "base04",
     "dim": "base04",
     "text": "base06",
@@ -45,7 +45,7 @@
     "toolOutput": "base07",
 
     "mdHeading": "base0A",
-    "mdLink": "base0D",
+    "mdLink": "base0E",
     "mdLinkUrl": "base06",
     "mdCode": "base0C",
     "mdCodeBlock": "base06",
@@ -69,7 +69,7 @@
     "syntaxOperator": "base06",
     "syntaxPunctuation": "base06",
 
-    "thinkingOff": "base02",
+    "thinkingOff": "base0E",
     "thinkingMinimal": "base02",
     "thinkingLow": "#4B6B8B",
     "thinkingMedium": "base0D",
