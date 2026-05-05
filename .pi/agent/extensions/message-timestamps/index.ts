@@ -87,7 +87,9 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
 
   pi.on("input", async (event, ctx) => {
     if (event.source !== "interactive") return { action: "continue" };
-    // Skip commands and skill invocations — prepending would break their parsing.
+    // Skip skill invocations and shell commands — the timestamp would leak into skill args
+    // or be executed as a shell command. Extension commands (/cmd) are handled before the
+    // input event fires, so they are unaffected.
     if (event.text.trimStart().startsWith("/") || event.text.trimStart().startsWith("!")) {
       return { action: "continue" };
     }
