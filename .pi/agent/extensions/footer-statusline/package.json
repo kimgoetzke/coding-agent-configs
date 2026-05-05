@@ -1,0 +1,13 @@
+{
+  "name": "pi-footer-statusline-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./footer-statusline.js"
+    ]
+  },
+  "scripts": {
+    "test": "node --test *.test.js"
+  }
+}
