@@ -18,6 +18,16 @@ const MONTHS = [
 const TIMESTAMP_CUSTOM_TYPE = "submit-timestamp";
 const AGENT_TIMESTAMP_CUSTOM_TYPE = "agent-response-timestamp";
 
+function formatDuration(startedAt: Date, endedAt: Date): string {
+  const totalSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
+  if (totalSeconds < 60) {
+    return `${totalSeconds}s`;
+  }
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
+  return remainingSeconds === 0 ? `${minutes}m` : `${minutes}m ${remainingSeconds}s`;
+}
+
 function formatTimestamp(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   const month = MONTHS[date.getMonth()];
@@ -29,6 +39,7 @@ function formatTimestamp(date: Date): string {
 }
 
 export default function messageTimestampsExtension(pi: ExtensionAPI) {
+  let submittedAt: Date | undefined;
   // Renderer for custom timestamp messages written by previous sessions.
   pi.registerMessageRenderer(
     TIMESTAMP_CUSTOM_TYPE,
@@ -64,9 +75,12 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
         (msg as any).content.some((c: any) => c.type === "text" && c.text?.trim()),
     );
     if (!hasTextResponse) return undefined;
+    const receivedAt = new Date();
+    const durationSuffix = submittedAt ? ` · Took ${formatDuration(submittedAt, receivedAt)}` : "";
+    submittedAt = undefined;
     pi.sendMessage({
       customType: AGENT_TIMESTAMP_CUSTOM_TYPE,
-      content: `Received · ${formatTimestamp(new Date())}`,
+      content: `Received · ${formatTimestamp(receivedAt)}${durationSuffix}`,
       display: true,
     });
   });
@@ -78,7 +92,8 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
       return { action: "continue" };
     }
 
-    const timestamp = `Sent · ${formatTimestamp(new Date())}`;
+    submittedAt = new Date();
+    const timestamp = `Sent · ${formatTimestamp(submittedAt)}`;
     const styledTimestamp = ctx.hasUI ? ctx.ui.theme.fg("accent", timestamp) : timestamp;
 
     return {
