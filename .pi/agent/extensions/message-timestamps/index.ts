@@ -16,6 +16,7 @@ const MONTHS = [
 ] as const;
 // Kept for backwards compatibility: renders timestamp messages from previous sessions.
 const TIMESTAMP_CUSTOM_TYPE = "submit-timestamp";
+const AGENT_TIMESTAMP_CUSTOM_TYPE = "agent-response-timestamp";
 
 function formatTimestamp(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
@@ -24,7 +25,7 @@ function formatTimestamp(date: Date): string {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
   const seconds = String(date.getSeconds()).padStart(2, "0");
-  return `── ${day} ${month} ${year} · ${hours}:${minutes}:${seconds} ──`;
+  return `${day} ${month} ${year} · ${hours}:${minutes}:${seconds}`;
 }
 
 export default function messageTimestampsExtension(pi: ExtensionAPI) {
@@ -41,6 +42,35 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     }),
   );
 
+  pi.registerMessageRenderer(
+    AGENT_TIMESTAMP_CUSTOM_TYPE,
+    (message, _options: MessageRenderOptions, theme: Theme) => ({
+      render: (width: number): string[] => {
+        const timestamp = String(message.content);
+        const padding = " ".repeat(Math.max(0, width - timestamp.length - 1));
+        return [theme.fg("accent", ` ${timestamp}${padding}`)];
+      },
+      invalidate: () => {},
+    }),
+  );
+
+  pi.on("agent_end", async (event, ctx) => {
+    if (!ctx.hasUI) return undefined;
+    // Only stamp turns that produced a real text response (not tool-only or thinking-only).
+    const hasTextResponse = event.messages.some(
+      (msg) =>
+        msg.role === "assistant" &&
+        Array.isArray((msg as any).content) &&
+        (msg as any).content.some((c: any) => c.type === "text" && c.text?.trim()),
+    );
+    if (!hasTextResponse) return undefined;
+    pi.sendMessage({
+      customType: AGENT_TIMESTAMP_CUSTOM_TYPE,
+      content: `Received · ${formatTimestamp(new Date())}`,
+      display: true,
+    });
+  });
+
   pi.on("input", async (event, ctx) => {
     if (event.source !== "interactive") return { action: "continue" };
     // Skip commands and skill invocations — prepending would break their parsing.
@@ -48,12 +78,12 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
       return { action: "continue" };
     }
 
-    const timestamp = formatTimestamp(new Date());
+    const timestamp = `Sent · ${formatTimestamp(new Date())}`;
     const styledTimestamp = ctx.hasUI ? ctx.ui.theme.fg("accent", timestamp) : timestamp;
 
     return {
       action: "transform",
-      text: `${styledTimestamp}\n\n${event.text}`,
+      text: `${event.text}\n\n${styledTimestamp}`,
     };
   });
 }
