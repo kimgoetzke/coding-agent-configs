@@ -25,6 +25,13 @@ Example `block` response with custom guidance note:
 - Project policy: `.pi/command-policy.json5`
 - Optional global policy: `~/.pi/agent/command-policy.json5`
 
+## Reference files
+
+Two reference files ship alongside this extension:
+
+- [`example-global-policy.json5`](./example-global-policy.json5) — a comprehensive example global policy covering filesystem destruction, disk tools, force-push, global package installs, dangerous `chmod`/`chown`, Docker scorched-earth, curl-pipe-sh, credential exposure, remote push, and a broad `confirm` list. Copy to `~/.pi/agent/command-policy.json5` and trim to your needs.
+- [`template-project-policy.json5`](./template-project-policy.json5) — a blank repo-level template with all three sections (`block`, `confirm`, `downgrade`) empty but fully commented. Copy to `.pi/command-policy.json5` in a repo and fill in only the rules that differ from your global policy.
+
 If both policy files exist, they are merged:
 
 - project-local `block` and `confirm` rules are applied alongside global rules

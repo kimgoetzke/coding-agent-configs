@@ -1,0 +1,81 @@
+{
+  // Project-level command policy template
+  //
+  // Drop this file at the root of your repo under .pi/command-policy.json5.
+  // It is merged with the global policy (~/.pi/agent/command-policy.json5):
+  //
+  //   • project `block` / `confirm` rules are added on top of global rules
+  //   • project `downgrade` rules are the only way to relax inherited global rules
+  //   • a project `confirm` rule does NOT override a matching global `block`
+  //
+  // Effective precedence for a matching atomic command:
+  //   1. project block
+  //   2. global block  (unless downgrade.confirm or downgrade.allow matches)
+  //   3. project confirm
+  //   4. global block downgraded to confirm
+  //   5. global confirm (unless downgrade.allow matches)
+  //   6. allow
+  //
+  // Rule format:
+  //   • plain string  → exact match after normalization (trim + collapse whitespace)
+  //   • { match, note } → same match semantics; `note` is shown to the user
+  //   • `*` inside `match` acts as a wildcard (matches any substring, incl. spaces)
+  //
+  // Notes:
+  //   block.note       → remediation guidance (what to do instead)
+  //   confirm.note     → approval hint (what to check before approving)
+  //   downgrade.*.note → shown in the downgraded outcome (confirm dialog or allow)
+
+  version: 1,
+
+  // ─── BLOCK ────────────────────────────────────────────────────────────────
+  // Add rules for commands that must never run in this repo, regardless of the
+  // global policy. These are additive — they do not replace global blocks.
+  //
+  // Examples:
+  //   "git push --force*"
+  //   { match: "npm run deploy*", note: "Deployments must go through CI." }
+
+  block: [],
+
+  // ─── CONFIRM ──────────────────────────────────────────────────────────────
+  // Add rules for commands that may run after explicit approval in this repo.
+  // These are additive. A project confirm rule does NOT weaken a global block —
+  // use `downgrade.confirm` for that.
+  //
+  // Examples:
+  //   "pnpm add *"
+  //   { match: "docker build *", note: "Check the Dockerfile tag before building." }
+
+  confirm: [],
+
+  // ─── DOWNGRADE ────────────────────────────────────────────────────────────
+  // The only mechanism for relaxing inherited global rules in a specific repo.
+  // Has no effect on rules that originate from this project policy itself.
+  //
+  // downgrade.confirm → lowers a matching global `block` to `confirm`
+  // downgrade.allow   → lowers a matching global `block` or `confirm` to `allow`
+  //
+  // Examples — given a global policy that blocks `python*` and confirms `rm *`:
+  //   downgrade.allow:   ["python*"]   → python runs freely in this repo
+  //   downgrade.confirm: ["python*"]   → python requires approval in this repo
+  //   downgrade.allow:   ["rm *"]      → rm runs freely in this repo
+
+  downgrade: {
+    // Lower these global `block` rules to `confirm` for this repo.
+    //
+    // Examples:
+    //   "pnpm add *"
+    //   { match: "python*", note: "Python is available in this project's venv." }
+
+    confirm: [],
+
+    // Lower these global `block` or `confirm` rules to `allow` for this repo.
+    //
+    // Examples:
+    //   "python*"
+    //   "pnpm remove *"
+
+    allow: [],
+  },
+}

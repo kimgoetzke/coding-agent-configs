@@ -1,0 +1,187 @@
+{
+  // Command policy — example global file (~/.pi/agent/command-policy.json5)
+  //
+  // This is an example/reference file. Copy it to ~/.pi/agent/command-policy.json5
+  // and trim it to what your machine actually needs.
+  //
+  // Rules match normalized, atomic commands extracted from the full bash string.
+  // Normalization: trim + collapse whitespace.
+  // `*` is a wildcard that matches any substring (including spaces).
+  // If both `block` and `confirm` match, `block` wins.
+  // Rules may be plain strings or objects with an optional `note`.
+  //   block.note  → remediation guidance shown when the command is blocked
+  //   confirm.note → approval hint shown in the confirmation dialog
+
+  version: 1,
+
+  // ─── BLOCK ────────────────────────────────────────────────────────────────
+  // Commands that must never run.
+
+  block: [
+    // ── Filesystem destruction ──────────────────────────────────────────────
+    "rm -rf /",
+    "rm -rf ~",
+    "rm -rf ~/",
+
+    // Wipe arbitrary path with no prompt
+    {
+      match: "shred *",
+      note: "Use `rm` with an explicit path instead; `shred` overwrites data irrecoverably.",
+    },
+
+    // ── Disk / partition tools ──────────────────────────────────────────────
+    "mkfs *",
+    "mkfs.*",
+    "dd if=* of=/dev/*",
+    "wipefs *",
+    "parted *",
+    "fdisk *",
+    "diskutil eraseDisk *",
+    "diskutil partitionDisk *",
+
+    // ── Force-push (can overwrite shared history) ───────────────────────────
+    {
+      match: "git push --force*",
+      note: "Force-pushes are never allowed. Create a new branch or use a normal push.",
+    },
+    {
+      match: "git push -f *",
+      note: "Force-pushes are never allowed. Create a new branch or use a normal push.",
+    },
+
+    // ── Dangerous chmod / chown ─────────────────────────────────────────────
+    "chmod -R 777 *",
+    "chown -R * /",
+
+    // ── Docker scorched-earth ───────────────────────────────────────────────
+    "docker system prune -a*",
+    "docker system prune --all*",
+
+    // ── System ──────────────────────────────────────────────────────────────
+    "init 0",
+    "init 6",
+
+    // ── Network exfiltration helpers ────────────────────────────────────────
+    // `curl | sh` / `wget | sh` patterns are caught by atomic-command splitting,
+    // but block the common idioms explicitly too.
+    {
+      match: "curl * | sh",
+      note: "Piping remote scripts directly into a shell is not allowed. Download first, inspect, then run.",
+    },
+    {
+      match: "curl * | bash",
+      note: "Piping remote scripts directly into a shell is not allowed. Download first, inspect, then run.",
+    },
+    {
+      match: "wget -O- * | sh",
+      note: "Piping remote scripts directly into a shell is not allowed. Download first, inspect, then run.",
+    },
+    {
+      match: "wget -O- * | bash",
+      note: "Piping remote scripts directly into a shell is not allowed. Download first, inspect, then run.",
+    },
+
+    // ── Credential / secret exposure ────────────────────────────────────────
+    {
+      match: "cat ~/.ssh/id_*",
+      note: "Reading SSH private keys is not allowed. Use `ssh-add` or an agent instead.",
+    },
+    {
+      match: "cat ~/.aws/credentials",
+      note: "Reading AWS credentials directly is not allowed.",
+    },
+
+    // ── Push to remote (no accidental publishing) ───────────────────────────
+    "git push *",
+    "gh pr create *",
+    "gh release create *",
+  ],
+
+  // ─── CONFIRM ──────────────────────────────────────────────────────────────
+  // Commands that may run after explicit human approval.
+
+  confirm: [
+    // ── Privileged execution ────────────────────────────────────────────────
+    "sudo *",
+
+    // ── File deletion / moves ───────────────────────────────────────────────
+    "rm *",
+    "rmdir *",
+    "rmdir*",
+    "mv *",
+
+    // ── Recursive copies (can be slow / unintended) ─────────────────────────
+    "cp -r *",
+    "cp -R *",
+    "rsync *",
+
+    // ── Git destructive ops ─────────────────────────────────────────────────
+    "git reset --hard*",
+    "git clean -fd*",
+    "git clean -fxd*",
+
+    // ── Docker container / image removal ────────────────────────────────────
+    "docker rm *",
+    "docker rmi *",
+    "docker stop *",
+    "docker container prune*",
+
+    // ── Package management (project-level) ──────────────────────────────────
+    "pnpm add *",
+    "pnpm remove *",
+    "npm install *",
+    "npm uninstall *",
+    "yarn add *",
+    "yarn remove *",
+    "bun add *",
+    "bun remove *",
+    "npm install -g *",
+    "npm i -g *",
+    "pip install *",
+
+    // ── Process termination ─────────────────────────────────────────────────
+    "kill *",
+    "kill",
+    "pkill *",
+    "killall *",
+
+    // ── Service management ──────────────────────────────────────────────────
+    "systemctl stop *",
+    "systemctl disable *",
+    "systemctl restart *",
+    "service * stop",
+    "service * restart",
+
+    // ── System management ──────────────────────────────────────────────────
+    "shutdown *",
+    "shutdown",
+    "halt",
+    "poweroff",
+    "systemctl poweroff",
+    "reboot",
+
+    // ── Database ops (could be destructive) ─────────────────────────────────
+    {
+      match: "psql * -c *DROP*",
+      note: "Confirm the target database and table before dropping.",
+    },
+    {
+      match: "mysql * -e *DROP*",
+      note: "Confirm the target database and table before dropping.",
+    },
+
+    // ── Infrastructure / cloud ──────────────────────────────────────────────
+    {
+      match: "kubectl delete *",
+      note: "Double-check cluster, namespace, and resource name before continuing.",
+    },
+    {
+      match: "terraform destroy*",
+      note: "Confirm you are targeting the correct workspace before destroying infrastructure.",
+    },
+    {
+      match: "aws * delete *",
+      note: "Confirm the target AWS resource and account before deleting.",
+    },
+  ],
+}
