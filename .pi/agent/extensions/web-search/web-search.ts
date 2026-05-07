@@ -1,13 +1,17 @@
 /**
- * Web Search extension — Phase 4: Real search provider chain
+ * Web Search extension
  *
  * Registers two LLM-callable tools:
- *   - web_search: searches via DuckDuckGo HTML → SearXNG (optional) → Wikipedia.
+ *   - web_search: searches via DuckDuckGo HTML → Bing → SearXNG (optional) → Wikipedia.
  *     Returns structured {title, url, snippet}[] results.
  *     Seeds the URL allow-list with every result URL.
- *   - fetch_content: fetches a URL and returns the raw response body.
+ *   - fetch_content: fetches a URL, extracts clean prose via Readability, and returns
+ *     it within the configured token budget.
  *     Rejects URLs not in the allow-list (must come from a prior web_search
  *     result or from a URL the user typed explicitly in the same turn).
+ *
+ * Configuration (optional): ~/.pi/agent/web-search.json
+ *   { searxngUrl?: string, defaultMaxTokens?: number, providers?: string[] }
  *
  * Lifecycle hooks:
  *   - session_start (fresh reasons): clears the allow-list
@@ -21,10 +25,14 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Container, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 
+import { ConcurrencyLimiter } from "./concurrency.js";
+import { loadConfig } from "./config.js";
 import { DEFAULT_MAX_TOKENS, extractContent } from "./content-extractor.js";
 import { truncateBody } from "./rendering.js";
 import { type SearchResult, search } from "./search-providers.js";
 import { addUrls, addUrlsFromText, clear, getAllowed, isAllowed } from "./url-allowlist.js";
+
+const FETCH_CONCURRENCY_LIMITER = new ConcurrencyLimiter(3);
 
 interface WebSearchDetails {
   query: string;
@@ -70,6 +78,9 @@ function formatSearchResults(query: string, results: SearchResult[], provider: s
 }
 
 export default function (pi: ExtensionAPI) {
+  const { config, warning: configWarning } = loadConfig();
+  if (configWarning) console.warn(configWarning);
+
   pi.on("session_start", (event: { reason: string }) => {
     if (FRESH_SESSION_REASONS.has(event.reason)) {
       clear();
@@ -88,7 +99,7 @@ export default function (pi: ExtensionAPI) {
     description: [
       "Search the web and return structured results (title, URL, snippet).",
       "Preferred way to search the web — use this instead of curl or bash for any web search.",
-      "Tries DuckDuckGo HTML first, then Wikipedia as a fallback. No API key required.",
+      "Tries DuckDuckGo HTML first, then Bing, then Wikipedia as a fallback. No API key required.",
       "Any URLs in the results are automatically approved for use with fetch_content.",
     ].join(" "),
     parameters: WebSearchParams,
@@ -99,7 +110,7 @@ export default function (pi: ExtensionAPI) {
       let provider: string;
 
       try {
-        ({ results, provider } = await search(params.query, maxResults));
+        ({ results, provider } = await search(params.query, maxResults, { searxngUrl: config.searxngUrl }));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
@@ -203,10 +214,12 @@ export default function (pi: ExtensionAPI) {
         };
       }
 
-      const maxTokens = params.maxTokens ?? DEFAULT_MAX_TOKENS;
+      const maxTokens = params.maxTokens ?? config.defaultMaxTokens ?? DEFAULT_MAX_TOKENS;
       let extracted;
       try {
-        extracted = await extractContent(params.url, maxTokens, signal ?? undefined);
+        extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
+          extractContent(params.url, maxTokens, signal ?? undefined),
+        );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
