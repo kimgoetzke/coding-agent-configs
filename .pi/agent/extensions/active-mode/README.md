@@ -1,12 +1,12 @@
 # active-mode
 
-Pi extension that gives `/.ai/.active-mode` the same lifecycle behaviour that Claude Code and Copilot get from standalone hooks.
+Pi extension that improves working with `*-mode` skills by giving `/.ai/.active-mode` the same lifecycle behaviour that Claude Code and Copilot get from standalone hooks. `*-mode` skills, such as `research-mode`, are skills that continually prompt the agent to keep certain files on disk up-to-date during a conversation. When a mode is active, it'll be shown to the user.
 
 ## What it does
 
-- Clears stale `.ai/.active-mode` files on fresh session start
+- Clears stale `.ai/.active-mode` flag files on fresh session start
 - Skips cleanup on `/reload`
-- Injects mode reminders before each LLM call via Pi lifecycle events
+- Injects the relevant mode reminders from reading the `/.ai/.active-mode` flag file before each LLM call via Pi lifecycle events
 - Adds a tiny coloured status badge plus a widget while a mode is active
 - Works with the shared flag used by `planning-mode`, `research-mode`, and other `*-mode` skills
 
