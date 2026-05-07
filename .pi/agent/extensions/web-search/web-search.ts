@@ -29,15 +29,17 @@ import { ConcurrencyLimiter } from "./concurrency.js";
 import { loadConfig } from "./config.js";
 import { DEFAULT_MAX_TOKENS, extractContent } from "./content-extractor.js";
 import { truncateBody } from "./rendering.js";
-import { type SearchResult, search } from "./search-providers.js";
+import { type ProviderAttempt, type SearchResult, search } from "./search-providers.js";
 import { addUrls, addUrlsFromText, clear, getAllowed, isAllowed } from "./url-allowlist.js";
 
 const FETCH_CONCURRENCY_LIMITER = new ConcurrencyLimiter(3);
 
 interface WebSearchDetails {
   query: string;
+  searchUrl: string;
   results: SearchResult[];
   provider: string;
+  attempts: ProviderAttempt[];
   model: string;
 }
 
@@ -66,13 +68,30 @@ const FetchContentParams = Type.Object({
   ),
 });
 
-function formatSearchResults(query: string, results: SearchResult[], provider: string): string {
-  if (results.length === 0) return `No results found for: "${query}" (via ${provider})`;
-  const lines = [`${results.length} results for "${query}" (via ${provider}):`];
-  for (const [i, r] of results.entries()) {
-    lines.push(`\n${i + 1}. ${r.title}`);
-    lines.push(`   ${r.url}`);
-    if (r.snippet) lines.push(`   ${r.snippet}`);
+function formatSearchResults(
+  query: string,
+  results: SearchResult[],
+  provider: string,
+  attempts: ProviderAttempt[],
+): string {
+  const lines: string[] = [];
+  if (results.length === 0) {
+    lines.push(`No results found for: "${query}" (via ${provider})`);
+  } else {
+    lines.push(`${results.length} results for "${query}" (via ${provider}):`);
+    for (const [i, r] of results.entries()) {
+      lines.push(`\n${i + 1}. ${r.title}`);
+      lines.push(`   ${r.url}`);
+      if (r.snippet) lines.push(`   ${r.snippet}`);
+    }
+  }
+  // Append notes so the agent can make informed decisions about result quality.
+  if (provider === "wikipedia") {
+    lines.push("\n\nNote: All other providers failed or returned no results; these results are from Wikipedia only (narrow domain — consider telling the user that search quality may be limited).");
+  }
+  const rateLimited = attempts.filter((a) => a.outcome === "rate_limited");
+  if (rateLimited.length > 0) {
+    lines.push(`\nNote: Rate limiting was applied to: ${rateLimited.map((a) => a.name).join(", ")}. If results are poor, consider waiting before retrying.`);
   }
   return lines.join("\n");
 }
@@ -108,9 +127,11 @@ export default function (pi: ExtensionAPI) {
       const maxResults = params.maxResults ?? 10;
       let results: SearchResult[];
       let provider: string;
+      let searchUrl: string;
+      let attempts: ProviderAttempt[];
 
       try {
-        ({ results, provider } = await search(params.query, maxResults, { searxngUrl: config.searxngUrl }));
+        ({ results, provider, searchUrl, attempts } = await search(params.query, maxResults, { searxngUrl: config.searxngUrl }));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
@@ -121,11 +142,11 @@ export default function (pi: ExtensionAPI) {
 
       addUrls(results.map((r) => r.url));
 
-      const content = formatSearchResults(params.query, results, provider);
+      const content = formatSearchResults(params.query, results, provider, attempts);
       const model = ctx.model?.id ?? "unknown";
       return {
         content: [{ type: "text", text: content }],
-        details: { query: params.query, results, provider, model } satisfies WebSearchDetails,
+        details: { query: params.query, searchUrl, results, provider, attempts, model } satisfies WebSearchDetails,
       };
     },
 
@@ -160,11 +181,28 @@ export default function (pi: ExtensionAPI) {
 
       const container = new Container();
       container.addChild(new Text(
-        theme.fg("toolTitle", theme.bold("web_search ")) + theme.fg("accent", details.query),
+        theme.fg("dim", "term: ") + theme.fg("accent", details.query),
         0, 0,
       ));
+      if (details.searchUrl) {
+        container.addChild(new Text(
+          theme.fg("dim", "url: ") + theme.fg("accent", details.searchUrl),
+          0, 0,
+        ));
+      }
+      const providerLines = details.attempts
+        .map((a) => {
+          switch (a.outcome) {
+            case "success": return `  - ${a.name}: ${a.resultCount} results`;
+            case "empty": return `  - ${a.name}: 0 results`;
+            case "rate_limited": return `  - ${a.name}: rate limited`;
+            case "skipped": return `  - ${a.name}: ${a.skipReason ?? "skipped"}`;
+            case "error": return `  - ${a.name}: error`;
+          }
+        })
+        .join("\n");
       container.addChild(new Text(
-        theme.fg("dim", `${details.provider} · ${details.model}`),
+        theme.fg("dim", `providers:\n${providerLines}`),
         0, 0,
       ));
       container.addChild(new Spacer(1));
@@ -178,7 +216,7 @@ export default function (pi: ExtensionAPI) {
       }
       container.addChild(new Spacer(1));
       container.addChild(new Text(
-        theme.fg("dim", `${resultCount} results via ${details.provider}`),
+        theme.fg("dim", `model: ${details.model}`),
         0, 0,
       ));
       return container;
@@ -277,9 +315,12 @@ export default function (pi: ExtensionAPI) {
       }
 
       const container = new Container();
-      const titleLine = details.title ? ` · ${details.title}` : "";
       container.addChild(new Text(
-        theme.fg("toolTitle", theme.bold("fetch_content ")) + theme.fg("accent", details.url) + theme.fg("dim", titleLine),
+        theme.fg("dim", "url: ") + theme.fg("accent", details.url),
+        0, 0,
+      ));
+      container.addChild(new Text(
+        theme.fg("dim", "title: ") + theme.fg("toolOutput", details.title ?? "(none)"),
         0, 0,
       ));
       container.addChild(new Text(

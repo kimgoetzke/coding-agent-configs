@@ -5,6 +5,13 @@ export interface SearchResult {
   date?: string;
 }
 
+export interface ProviderAttempt {
+  name: string;
+  outcome: "success" | "rate_limited" | "skipped" | "empty" | "error";
+  resultCount?: number;
+  skipReason?: string;
+}
+
 // ── Rate limiter ──────────────────────────────────────────────────────────────
 
 export class RateLimiter {
@@ -186,6 +193,10 @@ export function parseWikipediaOpenSearch(data: unknown): SearchResult[] {
 
 export interface SearchProvider {
   name: string;
+  /** If set, this provider is recorded as skipped with this reason and not attempted. */
+  skipReason?: string;
+  /** Pre-computed search URL for this query — used in the expanded result view. */
+  searchUrl?: string;
   rateLimiter: RateLimiter;
   search(query: string, maxResults: number): Promise<SearchResult[]>;
 }
@@ -199,23 +210,43 @@ export async function searchWithProviders(
   query: string,
   maxResults: number,
   providers: SearchProvider[],
-): Promise<{ results: SearchResult[]; provider: string }> {
+): Promise<{ results: SearchResult[]; provider: string; searchUrl: string; attempts: ProviderAttempt[] }> {
+  const attempts: ProviderAttempt[] = [];
   let lastEmptyProvider: string | null = null;
+  let lastEmptySearchUrl = "";
+
   for (const provider of providers) {
-    if (!provider.rateLimiter.tryAcquire()) continue;
+    if (provider.skipReason) {
+      attempts.push({ name: provider.name, outcome: "skipped", skipReason: provider.skipReason });
+      continue;
+    }
+    if (!provider.rateLimiter.tryAcquire()) {
+      attempts.push({ name: provider.name, outcome: "rate_limited" });
+      continue;
+    }
     try {
       const results = await provider.search(query, maxResults);
       if (results.length > 0) {
-        return { results: results.slice(0, maxResults), provider: provider.name };
+        attempts.push({ name: provider.name, outcome: "success", resultCount: results.length });
+        return {
+          results: results.slice(0, maxResults),
+          provider: provider.name,
+          searchUrl: provider.searchUrl ?? "",
+          attempts,
+        };
       }
       // Provider responded but returned nothing — remember it and try the next.
+      attempts.push({ name: provider.name, outcome: "empty", resultCount: 0 });
       lastEmptyProvider = provider.name;
+      lastEmptySearchUrl = provider.searchUrl ?? "";
     } catch {
       // Provider threw — fall through to next provider.
+      attempts.push({ name: provider.name, outcome: "error" });
     }
   }
+
   if (lastEmptyProvider !== null) {
-    return { results: [], provider: lastEmptyProvider };
+    return { results: [], provider: lastEmptyProvider, searchUrl: lastEmptySearchUrl, attempts };
   }
   throw new Error(`All search providers exhausted for query: "${query}"`);
 }
@@ -280,34 +311,46 @@ const WIKIPEDIA_RATE_LIMITER = new RateLimiter(20, 60_000);
 
 /**
  * Searches via the provider chain: DuckDuckGo HTML → Bing → SearXNG (optional) → Wikipedia OpenSearch.
- * `options.searxngUrl` activates the SearXNG provider when set.
+ * `options.searxngUrl` activates the SearXNG provider when set; otherwise SearXNG is recorded as skipped.
  */
 export async function search(
   query: string,
   maxResults: number,
   options?: { searxngUrl?: string },
-): Promise<{ results: SearchResult[]; provider: string }> {
+): Promise<{ results: SearchResult[]; provider: string; searchUrl: string; attempts: ProviderAttempt[] }> {
+  const encodedQuery = encodeURIComponent(query);
+  const searxngProvider: SearchProvider = options?.searxngUrl
+    ? {
+        name: "searxng",
+        rateLimiter: SEARXNG_RATE_LIMITER,
+        searchUrl: `${options.searxngUrl}/search?q=${encodedQuery}&format=json&categories=general`,
+        search: (q: string, n: number) => searxngSearch(q, n, options.searxngUrl!),
+      }
+    : {
+        name: "searxng",
+        rateLimiter: SEARXNG_RATE_LIMITER,
+        skipReason: "not configured",
+        search: async () => [],
+      };
+
   const providers: SearchProvider[] = [
     {
       name: "duckduckgo-html",
       rateLimiter: DDG_RATE_LIMITER,
+      searchUrl: `https://html.duckduckgo.com/html/?q=${encodedQuery}`,
       search: (q, n) => ddgSearch(q, n),
     },
     {
       name: "bing",
       rateLimiter: BING_RATE_LIMITER,
+      searchUrl: `https://www.bing.com/search?q=${encodedQuery}&mkt=en-US&setlang=en`,
       search: (q, n) => bingSearch(q, n),
     },
-    ...(options?.searxngUrl
-      ? [{
-          name: "searxng",
-          rateLimiter: SEARXNG_RATE_LIMITER,
-          search: (q: string, n: number) => searxngSearch(q, n, options.searxngUrl!),
-        }]
-      : []),
+    searxngProvider,
     {
       name: "wikipedia",
       rateLimiter: WIKIPEDIA_RATE_LIMITER,
+      searchUrl: `https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodedQuery}&limit=${maxResults}&namespace=0&format=json`,
       search: (q, n) => wikipediaSearch(q, n),
     },
   ];
