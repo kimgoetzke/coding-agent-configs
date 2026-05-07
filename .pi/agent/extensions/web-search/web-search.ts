@@ -21,8 +21,8 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Container, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 
-import { fetchRaw } from "./fetch.js";
-import { formatByteCount, truncateBody } from "./rendering.js";
+import { DEFAULT_MAX_TOKENS, extractContent } from "./content-extractor.js";
+import { truncateBody } from "./rendering.js";
 import { type SearchResult, search } from "./search-providers.js";
 import { addUrls, addUrlsFromText, clear, getAllowed, isAllowed } from "./url-allowlist.js";
 
@@ -35,8 +35,10 @@ interface WebSearchDetails {
 
 interface FetchContentDetails {
   url: string;
-  body: string;
-  byteCount: number;
+  title: string | null;
+  content: string;
+  contentTokensApprox: number;
+  truncated: boolean;
   model: string;
 }
 
@@ -201,20 +203,32 @@ export default function (pi: ExtensionAPI) {
         };
       }
 
-      const { ok, body } = await fetchRaw(params.url, signal);
-
-      if (!ok) {
+      const maxTokens = params.maxTokens ?? DEFAULT_MAX_TOKENS;
+      let extracted;
+      try {
+        extracted = await extractContent(params.url, maxTokens, signal ?? undefined);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         return {
-          content: [{ type: "text", text: `Failed to fetch: ${params.url}` }],
+          content: [{ type: "text", text: `fetch_content failed: ${message}` }],
           isError: true,
         };
       }
 
-      const byteCount = new TextEncoder().encode(body).length;
       const model = ctx.model?.id ?? "unknown";
+      const truncationNote = extracted.truncated
+        ? `\n\n[Content truncated to ~${maxTokens} tokens]`
+        : "";
       return {
-        content: [{ type: "text", text: body }],
-        details: { url: params.url, body, byteCount, model } satisfies FetchContentDetails,
+        content: [{ type: "text", text: extracted.content + truncationNote }],
+        details: {
+          url: extracted.url,
+          title: extracted.title,
+          content: extracted.content,
+          contentTokensApprox: extracted.contentTokensApprox,
+          truncated: extracted.truncated,
+          model,
+        } satisfies FetchContentDetails,
       };
     },
 
@@ -237,19 +251,22 @@ export default function (pi: ExtensionAPI) {
       }
 
       const details = result.details as FetchContentDetails | undefined;
-      const byteCount = details?.byteCount ?? new TextEncoder().encode(body).length;
+      const tokenCount = details?.contentTokensApprox ?? Math.round(body.length / 4);
+      const truncated = details?.truncated ?? false;
 
       if (!expanded || !details) {
+        const truncNote = truncated ? " (truncated)" : "";
         return new Text(
-          theme.fg("toolOutput", `${byteCount} bytes returned`) + theme.fg("muted", " (Ctrl+O to expand)"),
+          theme.fg("toolOutput", `~${tokenCount} tokens returned${truncNote}`) + theme.fg("muted", " (Ctrl+O to expand)"),
           0,
           0,
         );
       }
 
       const container = new Container();
+      const titleLine = details.title ? ` · ${details.title}` : "";
       container.addChild(new Text(
-        theme.fg("toolTitle", theme.bold("fetch_content ")) + theme.fg("accent", details.url),
+        theme.fg("toolTitle", theme.bold("fetch_content ")) + theme.fg("accent", details.url) + theme.fg("dim", titleLine),
         0, 0,
       ));
       container.addChild(new Text(
@@ -258,12 +275,13 @@ export default function (pi: ExtensionAPI) {
       ));
       container.addChild(new Spacer(1));
       container.addChild(new Text(
-        theme.fg("toolOutput", truncateBody(details.body, 4000)),
+        theme.fg("toolOutput", truncateBody(details.content, 4000)),
         0, 0,
       ));
       container.addChild(new Spacer(1));
+      const footer = `~${details.contentTokensApprox} tokens${details.truncated ? " (truncated)" : ""}`;
       container.addChild(new Text(
-        theme.fg("dim", `${formatByteCount(byteCount)} total`),
+        theme.fg("dim", footer),
         0, 0,
       ));
       return container;

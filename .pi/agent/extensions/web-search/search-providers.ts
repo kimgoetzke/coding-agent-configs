@@ -90,6 +90,49 @@ export function parseDuckDuckGoHtml(html: string): SearchResult[] {
   }));
 }
 
+// ── Bing HTML parser ──────────────────────────────────────────────────────────
+
+/**
+ * Decodes a Bing click-tracking URL parameter value.
+ * Bing encodes the destination URL as base64url with a 2-char "a1" prefix.
+ */
+export function decodeBingUrl(encoded: string): string {
+  try {
+    const b64 = encoded.slice(2);
+    if (!b64) return "";
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    return Buffer.from(padded.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Parses a Bing HTML SERP body into structured results.
+ * Extracts title and click-tracking URL from h2 anchors; snippet from b_lineclamp paragraphs.
+ */
+export function parseBingHtml(html: string): SearchResult[] {
+  const results: SearchResult[] = [];
+  const titleRegex = /<h2[^>]*><a\b[^>]*href="(https:\/\/www\.bing\.com\/ck\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+
+  for (const m of html.matchAll(titleRegex)) {
+    const rawHref = (m[1] ?? "").replace(/&amp;/g, "&");
+    const uParam = rawHref.match(/[?&]u=([A-Za-z0-9_-]+)/)?.[1];
+    const url = uParam ? decodeBingUrl(uParam) : "";
+    if (!url.startsWith("http")) continue;
+
+    const title = stripHtmlTags(m[2] ?? "");
+    if (!title) continue;
+
+    const after = html.slice((m.index ?? 0) + m[0].length, (m.index ?? 0) + m[0].length + 2000);
+    const snipMatch = after.match(/<p\b[^>]*class="[^"]*b_lineclamp[^"]*"[^>]*>([\s\S]*?)<\/p>/);
+    const snippet = stripHtmlTags(snipMatch?.[1] ?? "");
+
+    results.push({ title, url, snippet });
+  }
+  return results;
+}
+
 // ── SearXNG JSON parser ───────────────────────────────────────────────────────
 
 /**
@@ -157,14 +200,22 @@ export async function searchWithProviders(
   maxResults: number,
   providers: SearchProvider[],
 ): Promise<{ results: SearchResult[]; provider: string }> {
+  let lastEmptyProvider: string | null = null;
   for (const provider of providers) {
     if (!provider.rateLimiter.tryAcquire()) continue;
     try {
       const results = await provider.search(query, maxResults);
-      return { results: results.slice(0, maxResults), provider: provider.name };
+      if (results.length > 0) {
+        return { results: results.slice(0, maxResults), provider: provider.name };
+      }
+      // Provider responded but returned nothing — remember it and try the next.
+      lastEmptyProvider = provider.name;
     } catch {
-      // fall through to next provider
+      // Provider threw — fall through to next provider.
     }
+  }
+  if (lastEmptyProvider !== null) {
+    return { results: [], provider: lastEmptyProvider };
   }
   throw new Error(`All search providers exhausted for query: "${query}"`);
 }
@@ -181,21 +232,30 @@ function randomUserAgent(): string {
   return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)] as string;
 }
 
-async function fetchForSearch(url: string): Promise<{ ok: boolean; body: string }> {
+async function fetchForSearch(url: string): Promise<{ ok: boolean; status: number; body: string }> {
   const response = await fetch(url, {
     headers: { "User-Agent": randomUserAgent() },
     signal: AbortSignal.timeout(30_000),
     redirect: "follow",
   });
   const text = await response.text();
-  return { ok: response.ok, body: text };
+  return { ok: response.ok, status: response.status, body: text };
 }
 
 async function ddgSearch(query: string, maxResults: number): Promise<SearchResult[]> {
   const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
-  const { ok, body } = await fetchForSearch(url);
-  if (!ok) throw new Error("DuckDuckGo search returned non-2xx");
+  const { ok, status, body } = await fetchForSearch(url);
+  if (!ok) throw new Error(`DuckDuckGo search returned non-2xx: ${status}`);
+  // 202 is DDG's bot-detection/CAPTCHA interstitial — treat as failure so we fall back.
+  if (status === 202) throw new Error("DuckDuckGo returned bot-detection page (202)");
   return parseDuckDuckGoHtml(body).slice(0, maxResults);
+}
+
+async function bingSearch(query: string, maxResults: number): Promise<SearchResult[]> {
+  const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&mkt=en-US&setlang=en`;
+  const { ok, status, body } = await fetchForSearch(url);
+  if (!ok) throw new Error(`Bing search returned non-2xx: ${status}`);
+  return parseBingHtml(body).slice(0, maxResults);
 }
 
 async function searxngSearch(query: string, maxResults: number, baseUrl: string): Promise<SearchResult[]> {
@@ -214,11 +274,12 @@ async function wikipediaSearch(query: string, maxResults: number): Promise<Searc
 
 // Module-level rate limiters — one token bucket per provider
 const DDG_RATE_LIMITER = new RateLimiter(10, 60_000);
+const BING_RATE_LIMITER = new RateLimiter(10, 60_000);
 const SEARXNG_RATE_LIMITER = new RateLimiter(10, 60_000);
 const WIKIPEDIA_RATE_LIMITER = new RateLimiter(20, 60_000);
 
 /**
- * Searches via the provider chain: DuckDuckGo HTML → SearXNG (optional) → Wikipedia OpenSearch.
+ * Searches via the provider chain: DuckDuckGo HTML → Bing → SearXNG (optional) → Wikipedia OpenSearch.
  * `options.searxngUrl` activates the SearXNG provider when set.
  */
 export async function search(
@@ -231,6 +292,11 @@ export async function search(
       name: "duckduckgo-html",
       rateLimiter: DDG_RATE_LIMITER,
       search: (q, n) => ddgSearch(q, n),
+    },
+    {
+      name: "bing",
+      rateLimiter: BING_RATE_LIMITER,
+      search: (q, n) => bingSearch(q, n),
     },
     ...(options?.searxngUrl
       ? [{

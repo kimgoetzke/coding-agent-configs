@@ -5,6 +5,8 @@ import {
   parseDuckDuckGoHtml,
   parseSearXNGJson,
   parseWikipediaOpenSearch,
+  parseBingHtml,
+  decodeBingUrl,
   RateLimiter,
   searchWithProviders,
 } from "./search-providers.ts";
@@ -198,6 +200,26 @@ test("searchWithProviders throws when all providers fail", async () => {
   await assert.rejects(() => searchWithProviders("q", 5, providers));
 });
 
+test("searchWithProviders falls through when first provider returns empty results", async () => {
+  const providers = [
+    makeProvider("primary", async () => []),
+    makeProvider("fallback", async () => [ONE_RESULT]),
+  ];
+  const { results, provider } = await searchWithProviders("q", 5, providers);
+  assert.equal(provider, "fallback");
+  assert.equal(results.length, 1);
+});
+
+test("searchWithProviders returns empty from last successful provider when all return empty", async () => {
+  const providers = [
+    makeProvider("p1", async () => []),
+    makeProvider("p2", async () => []),
+  ];
+  const { results, provider } = await searchWithProviders("q", 5, providers);
+  assert.equal(provider, "p2");
+  assert.equal(results.length, 0);
+});
+
 test("searchWithProviders trims results to maxResults", async () => {
   const manyResults: SearchResult[] = Array.from({ length: 10 }, (_, i) => ({
     title: `T${i}`, url: `https://r${i}.example.com`, snippet: "S",
@@ -205,4 +227,76 @@ test("searchWithProviders trims results to maxResults", async () => {
   const providers = [makeProvider("p", async () => manyResults)];
   const { results } = await searchWithProviders("q", 3, providers);
   assert.equal(results.length, 3);
+});
+
+// ── decodeBingUrl ─────────────────────────────────────────────────────────────
+
+// "https://example.com/page1" → base64url → "aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdlMQ" → with "a1" prefix
+const EXAMPLE_ENCODED = "a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdlMQ";
+
+test("decodeBingUrl decodes a known base64url-encoded URL", () => {
+  assert.equal(decodeBingUrl(EXAMPLE_ENCODED), "https://example.com/page1");
+});
+
+test("decodeBingUrl returns empty string for input shorter than 3 chars", () => {
+  assert.equal(decodeBingUrl("a1"), "");
+  assert.equal(decodeBingUrl(""), "");
+});
+
+test("decodeBingUrl returns empty string for invalid base64", () => {
+  assert.equal(decodeBingUrl("a1!!!"), "");
+});
+
+// ── parseBingHtml ─────────────────────────────────────────────────────────────
+
+// Construct a minimal fixture using the known encoded values.
+// "https://example.com/page1"  → a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdlMQ
+// "https://other.org/article"  → a1aHR0cHM6Ly9vdGhlci5vcmcvYXJ0aWNsZQ
+const BING_HTML_FIXTURE = `
+<html><body>
+<ol id="b_results">
+  <li class="b_algo">
+    <h2><a class="tilk" href="https://www.bing.com/ck/a?!&&p=abc&amp;u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdlMQ&amp;ntb=1">Example Page One</a></h2>
+    <div class="b_caption">
+      <p class="b_lineclamp2">Snippet for result one about testing.</p>
+    </div>
+  </li>
+  <li class="b_algo">
+    <h2><a class="tilk" href="https://www.bing.com/ck/a?!&&p=xyz&amp;u=a1aHR0cHM6Ly9vdGhlci5vcmcvYXJ0aWNsZQ&amp;ntb=1">Other Article <b>Title</b></a></h2>
+    <div class="b_caption">
+      <p class="b_lineclamp3">Snippet for result two with more detail.</p>
+    </div>
+  </li>
+</ol>
+</body></html>
+`;
+
+test("parseBingHtml returns two results from fixture", () => {
+  const results = parseBingHtml(BING_HTML_FIXTURE);
+  assert.equal(results.length, 2);
+});
+
+test("parseBingHtml extracts correct title and URL from first result", () => {
+  const results = parseBingHtml(BING_HTML_FIXTURE);
+  assert.equal(results[0]?.title, "Example Page One");
+  assert.equal(results[0]?.url, "https://example.com/page1");
+});
+
+test("parseBingHtml extracts snippet from first result", () => {
+  const results = parseBingHtml(BING_HTML_FIXTURE);
+  assert.equal(results[0]?.snippet, "Snippet for result one about testing.");
+});
+
+test("parseBingHtml strips inner HTML tags from title", () => {
+  const results = parseBingHtml(BING_HTML_FIXTURE);
+  assert.equal(results[1]?.title, "Other Article Title");
+});
+
+test("parseBingHtml decodes HTML-entity-encoded href (&amp;u=)", () => {
+  const results = parseBingHtml(BING_HTML_FIXTURE);
+  assert.equal(results[1]?.url, "https://other.org/article");
+});
+
+test("parseBingHtml returns empty array for HTML with no Bing CK links", () => {
+  assert.deepEqual(parseBingHtml("<html><body>nothing here</body></html>"), []);
 });

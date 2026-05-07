@@ -9,5 +9,9 @@
   },
   "scripts": {
     "test": "nix shell nixpkgs#nodejs --command node --experimental-strip-types --test *.test.ts"
+  },
+  "dependencies": {
+    "@mozilla/readability": "^0.5.0",
+    "linkedom": "^0.18.0"
   }
 }
