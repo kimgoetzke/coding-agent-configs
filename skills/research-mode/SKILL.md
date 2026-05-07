@@ -1,13 +1,14 @@
 ---
 name: research-mode
-description: Toggle persistent research mode on/off. When on, hook support can remind the agent to keep the research document updated throughout the conversation, with manual fallback if unavailable. Use with a research topic to start, or with "off" to stop.
-argument-hint: [topic or 'off' or empty]
+description: Toggle persistent research mode on/off. When on, hook support can remind the agent to keep the research document updated throughout the conversation, with manual fallback if unavailable. Use with a research topic to start, with "continue" to resume an existing research doc, or with "off" to stop.
+argument-hint: [topic or 'continue' or 'off' or empty]
 ---
 
 ## Usage
 
 - `/research-mode` — Enable research mode, then prompt for a topic
 - `/research-mode <topic>` — Enable research mode and start researching the topic
+- `/research-mode continue` — List existing research docs and resume one
 - `/research-mode off` — Disable research mode
 
 ## Configuration
@@ -47,6 +48,7 @@ Parse the arguments:
 
 - **No arguments** → go to Step 3a
 - **"off"** → go to Step 5
+- **"continue"** → go to Step 3c
 - **Any other text** → treat as the research topic, go to Step 3b
 
 ### Step 3a: Enable without topic
@@ -76,6 +78,36 @@ Parse the arguments:
 4. Confirm to the user: "Research mode is on. I'll keep updating {document path} as we go. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
 5. If running in Claude Code, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
 6. If running in Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+
+### Step 3c: Continue an existing research doc
+
+1. List markdown files in `{repo root}/.ai/research/`.
+   - If the directory is missing or contains no `.md` files, stop and tell the user: "No existing research docs found in `.ai/research/`. Use `/research-mode <topic>` to start a new one."
+   - On Windows, if Glob fails to list the directory, fall back to `ls "{repo root}/.ai/research/"` via Bash.
+2. Sort newest first (the `{yyyy-mm-dd}` filename prefix sorts correctly lexicographically).
+3. Show the filenames exactly as stored in a numbered list. Example:
+   ```
+   1. 2026-04-10 auth-middleware-analysis.md
+   2. 2026-04-08 retry-strategies.md
+   ```
+4. Prompt the user to reply with either the list number or the filename.
+5. Resolve the selection:
+   - If the input is a number, resolve it against the numbered list.
+   - If the input is text, try exact filename match first (with or without `.md` suffix).
+   - If no exact match, allow a single unambiguous case-insensitive partial match.
+   - If the input is invalid, ambiguous, or out of range, stop and tell the user the selection was invalid. Do not re-prompt.
+6. Read the selected document so its contents are in context.
+7. Derive `{topic}` from the filename by removing the `{yyyy-mm-dd} ` prefix and `.md` suffix.
+8. Create `{repo root}/.ai/.active-mode` with:
+   ```
+   mode: research
+   topic: {topic}
+   document: {full path to the selected doc}
+   started: {yyyy-mm-dd HH:mm}
+   ```
+9. Confirm to the user: "Research mode is on. Continuing `{document path}`. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
+10. If running in Claude Code, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+11. If running in Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
 
 ### Step 4: Keep the research document updated
 

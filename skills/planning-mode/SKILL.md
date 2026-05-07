@@ -1,13 +1,14 @@
 ---
 name: planning-mode
-description: Toggle persistent planning mode on/off. When on, hook support can remind the agent to keep planning documents updated throughout the conversation, with manual fallback if unavailable. Combines the full planning workflow with persistent mode for long-running planning and implementation sessions. Use with a topic to start, or with "off" to stop.
-argument-hint: [topic or 'off' or empty]
+description: Toggle persistent planning mode on/off. When on, hook support can remind the agent to keep planning documents updated throughout the conversation, with manual fallback if unavailable. Combines the full planning workflow with persistent mode for long-running planning and implementation sessions. Use with a topic to start, with "continue" to resume an existing plan, or with "off" to stop.
+argument-hint: [topic or 'continue' or 'off' or empty]
 ---
 
 ## Usage
 
 - `/planning-mode` — Enable planning mode, then prompt for a topic
 - `/planning-mode <topic>` — Enable planning mode and start planning
+- `/planning-mode continue` — List existing plan folders and resume one
 - `/planning-mode off` — Disable planning mode
 
 ## Configuration
@@ -69,6 +70,7 @@ Parse the arguments:
 
 - **No arguments** → go to Step 3a
 - **"off"** → go to Step 9
+- **"continue"** → go to Step 3c
 - **Any other text** → treat as the planning topic, go to Step 3b
 
 ### Step 3a: Enable without topic
@@ -97,6 +99,44 @@ Parse the arguments:
    ```
    If it already exists (from Step 3a), update the `folder:` line.
 4. Continue to Step 4.
+
+### Step 3c: Continue an existing plan
+
+1. List directories in `{repo root}/.ai/planning/`.
+   - If the directory is missing or contains no plan folders, stop and tell the user: "No existing plans found in `.ai/planning/`. Use `/planning-mode <topic>` to start a new one."
+   - On Windows, if Glob fails to list the directory, fall back to `ls "{repo root}/.ai/planning/"` via Bash.
+2. Sort newest first (the `{yyyy-mm-dd}` folder prefix sorts correctly lexicographically).
+3. Show the folder names exactly as stored in a numbered list. Example:
+   ```
+   1. 2026-04-10 refactor-auth-flow
+   2. 2026-04-08 add-retry-metrics
+   ```
+4. Prompt the user to reply with either the list number or the folder name.
+5. Resolve the selection:
+   - If the input is a number, resolve it against the numbered list.
+   - If the input is text, try exact folder-name match first.
+   - If no exact match, allow a single unambiguous case-insensitive partial match.
+   - If the input is invalid, ambiguous, or out of range, stop and tell the user the selection was invalid. Do not re-prompt.
+6. Read the planning files in the selected folder so their contents are in context. Read in this order, only what exists:
+   1. `plan.md`
+   2. `progress.md` (multi-phase plans only)
+   3. `findings.md`
+   4. `questions.md`
+
+   If `plan.md` is missing, tell the user the plan is incomplete and continue with whatever does exist.
+7. Create `{repo root}/.ai/.active-mode` with:
+   ```
+   mode: planning
+   folder: {repo root}/.ai/planning/{selected folder}/
+   started: {yyyy-mm-dd HH:mm}
+   ```
+8. Briefly summarise the plan's current state to the user — current phase, status, any open questions or blockers — based only on the loaded docs.
+9. Confirm: "Planning mode is on. Continuing `{folder path}`. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
+10. Recommend renaming the conversation:
+    - If running in Claude Code or GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation." where `{task name}` is the folder name with the date prefix removed.
+    - If running in Pi, recommend: "You can run `/name {task name}` to name this conversation." where `{task name}` is the folder name with the date prefix removed.
+    - Otherwise, recommend: "Consider renaming this conversation to `{task name}` if your tool supports it."
+11. Skip Steps 4–7 (the plan already exists). Continue with Step 8 (keep planning documents updated).
 
 ### Step 4: Research & discover
 
