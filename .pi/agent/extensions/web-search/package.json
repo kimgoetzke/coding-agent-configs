@@ -1,0 +1,13 @@
+{
+  "name": "pi-web-search-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./web-search.ts"
+    ]
+  },
+  "scripts": {
+    "test": "nix shell nixpkgs#nodejs --command node --experimental-strip-types --test *.test.ts"
+  }
+}

@@ -1,0 +1,208 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+
+import {
+  parseDuckDuckGoHtml,
+  parseSearXNGJson,
+  parseWikipediaOpenSearch,
+  RateLimiter,
+  searchWithProviders,
+} from "./search-providers.ts";
+import type { SearchResult } from "./search-providers.ts";
+
+// ── DDG HTML fixture ─────────────────────────────────────────────────────────
+
+const DDG_HTML_FIXTURE = `
+<html><body>
+<div class="results">
+  <div class="result results_links results_links_deep web-result">
+    <div class="result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="/l/?uddg=https%3A%2F%2Fexample.com%2Fpage1&rut=abc">Example Page One</a>
+      </h2>
+      <div class="result__extras">
+        <a class="result__url" href="/l/?uddg=https%3A%2F%2Fexample.com%2Fpage1">example.com</a>
+      </div>
+      <a class="result__snippet" href="/l/?uddg=https%3A%2F%2Fexample.com%2Fpage1">Snippet for result one about testing.</a>
+    </div>
+  </div>
+  <div class="result results_links results_links_deep web-result">
+    <div class="result__body">
+      <h2 class="result__title">
+        <a rel="nofollow" class="result__a" href="/l/?uddg=https%3A%2F%2Fother.org%2Farticle&rut=xyz">Other Article Title</a>
+      </h2>
+      <div class="result__extras">
+        <a class="result__url" href="/l/?uddg=https%3A%2F%2Fother.org%2Farticle">other.org</a>
+      </div>
+      <a class="result__snippet" href="/l/?uddg=https%3A%2F%2Fother.org%2Farticle">Snippet for result two <b>with bold</b> text.</a>
+    </div>
+  </div>
+</div>
+</body></html>
+`;
+
+// ── parseDuckDuckGoHtml ───────────────────────────────────────────────────────
+
+test("parseDuckDuckGoHtml returns two results from fixture", () => {
+  const results = parseDuckDuckGoHtml(DDG_HTML_FIXTURE);
+  assert.equal(results.length, 2);
+});
+
+test("parseDuckDuckGoHtml extracts correct title and URL from first result", () => {
+  const results = parseDuckDuckGoHtml(DDG_HTML_FIXTURE);
+  assert.equal(results[0]?.title, "Example Page One");
+  assert.equal(results[0]?.url, "https://example.com/page1");
+});
+
+test("parseDuckDuckGoHtml extracts snippet and strips inner HTML tags", () => {
+  const results = parseDuckDuckGoHtml(DDG_HTML_FIXTURE);
+  assert.equal(results[1]?.snippet, "Snippet for result two with bold text.");
+});
+
+test("parseDuckDuckGoHtml decodes percent-encoded DDG redirect URLs", () => {
+  const html = `<a class="result__a" href="/l/?uddg=https%3A%2F%2Fencoded.example.com%2Fpath%3Fq%3D1">T</a>
+                <a class="result__snippet">S</a>`;
+  const results = parseDuckDuckGoHtml(html);
+  assert.equal(results[0]?.url, "https://encoded.example.com/path?q=1");
+});
+
+test("parseDuckDuckGoHtml returns empty array for HTML with no result__a links", () => {
+  assert.deepEqual(parseDuckDuckGoHtml("<html><body>nothing here</body></html>"), []);
+});
+
+// ── parseSearXNGJson ─────────────────────────────────────────────────────────
+
+const SEARXNG_FIXTURE = {
+  results: [
+    { title: "SearXNG Result One", url: "https://searxng-one.example.com", content: "SearXNG snippet one.", publishedDate: "2024-01-15T00:00:00Z" },
+    { title: "SearXNG Result Two", url: "https://searxng-two.example.com", content: "SearXNG snippet two." },
+  ],
+};
+
+test("parseSearXNGJson extracts title, url, snippet from fixture", () => {
+  const results = parseSearXNGJson(SEARXNG_FIXTURE);
+  assert.equal(results.length, 2);
+  assert.equal(results[0]?.title, "SearXNG Result One");
+  assert.equal(results[0]?.url, "https://searxng-one.example.com");
+  assert.equal(results[0]?.snippet, "SearXNG snippet one.");
+});
+
+test("parseSearXNGJson includes date when present, omits when absent", () => {
+  const results = parseSearXNGJson(SEARXNG_FIXTURE);
+  assert.equal(results[0]?.date, "2024-01-15T00:00:00Z");
+  assert.equal(results[1]?.date, undefined);
+});
+
+test("parseSearXNGJson skips items missing title or URL", () => {
+  const data = { results: [{ url: "https://a.com" }, { title: "T", url: "https://b.com", content: "S" }] };
+  const results = parseSearXNGJson(data);
+  assert.equal(results.length, 1);
+  assert.equal(results[0]?.url, "https://b.com");
+});
+
+test("parseSearXNGJson returns empty array for non-object input", () => {
+  assert.deepEqual(parseSearXNGJson(null), []);
+  assert.deepEqual(parseSearXNGJson("string"), []);
+  assert.deepEqual(parseSearXNGJson({ noResults: [] }), []);
+});
+
+// ── parseWikipediaOpenSearch ──────────────────────────────────────────────────
+
+// Wikipedia OpenSearch format: [query, [titles], [descriptions], [urls]]
+const WIKIPEDIA_FIXTURE = [
+  "test query",
+  ["Wiki Article One", "Wiki Article Two"],
+  ["Description of article one.", "Description of article two."],
+  ["https://en.wikipedia.org/wiki/Wiki_Article_One", "https://en.wikipedia.org/wiki/Wiki_Article_Two"],
+];
+
+test("parseWikipediaOpenSearch extracts title, url, snippet from fixture", () => {
+  const results = parseWikipediaOpenSearch(WIKIPEDIA_FIXTURE);
+  assert.equal(results.length, 2);
+  assert.equal(results[0]?.title, "Wiki Article One");
+  assert.equal(results[0]?.url, "https://en.wikipedia.org/wiki/Wiki_Article_One");
+  assert.equal(results[0]?.snippet, "Description of article one.");
+});
+
+test("parseWikipediaOpenSearch returns empty for short or non-array input", () => {
+  assert.deepEqual(parseWikipediaOpenSearch(null), []);
+  assert.deepEqual(parseWikipediaOpenSearch(["query", ["T"]]), []); // < 4 elements
+  assert.deepEqual(parseWikipediaOpenSearch("string"), []);
+});
+
+// ── RateLimiter ───────────────────────────────────────────────────────────────
+
+test("RateLimiter allows exactly maxRequests acquisitions within window", () => {
+  const limiter = new RateLimiter(3, 60_000);
+  assert.equal(limiter.tryAcquire(), true);
+  assert.equal(limiter.tryAcquire(), true);
+  assert.equal(limiter.tryAcquire(), true);
+});
+
+test("RateLimiter blocks the request beyond maxRequests within window", () => {
+  const limiter = new RateLimiter(3, 60_000);
+  limiter.tryAcquire();
+  limiter.tryAcquire();
+  limiter.tryAcquire();
+  assert.equal(limiter.tryAcquire(), false);
+});
+
+// ── searchWithProviders ───────────────────────────────────────────────────────
+
+function makeProvider(
+  name: string,
+  searchFn: (query: string, maxResults: number) => Promise<SearchResult[]>,
+  maxRequests = 10,
+) {
+  return { name, rateLimiter: new RateLimiter(maxRequests, 60_000), search: searchFn };
+}
+
+const ONE_RESULT: SearchResult = { title: "T", url: "https://result.example.com", snippet: "S" };
+
+test("searchWithProviders returns results from first successful provider", async () => {
+  const providers = [
+    makeProvider("primary", async () => [ONE_RESULT]),
+    makeProvider("fallback", async () => { throw new Error("must not be called"); }),
+  ];
+  const { results, provider } = await searchWithProviders("q", 5, providers);
+  assert.equal(provider, "primary");
+  assert.equal(results.length, 1);
+});
+
+test("searchWithProviders falls back to next provider when first throws", async () => {
+  const providers = [
+    makeProvider("primary", async () => { throw new Error("network error"); }),
+    makeProvider("fallback", async () => [ONE_RESULT]),
+  ];
+  const { results, provider } = await searchWithProviders("q", 5, providers);
+  assert.equal(provider, "fallback");
+  assert.equal(results[0]?.url, ONE_RESULT.url);
+});
+
+test("searchWithProviders skips rate-limited provider and falls back", async () => {
+  const exhaustedLimiter = new RateLimiter(1, 60_000);
+  exhaustedLimiter.tryAcquire(); // consume the single allowed token
+  const providers = [
+    { name: "primary", rateLimiter: exhaustedLimiter, search: async () => { throw new Error("must not be called"); } },
+    makeProvider("fallback", async () => [ONE_RESULT]),
+  ];
+  const { provider } = await searchWithProviders("q", 5, providers);
+  assert.equal(provider, "fallback");
+});
+
+test("searchWithProviders throws when all providers fail", async () => {
+  const providers = [
+    makeProvider("p1", async () => { throw new Error("failed"); }),
+    makeProvider("p2", async () => { throw new Error("failed"); }),
+  ];
+  await assert.rejects(() => searchWithProviders("q", 5, providers));
+});
+
+test("searchWithProviders trims results to maxResults", async () => {
+  const manyResults: SearchResult[] = Array.from({ length: 10 }, (_, i) => ({
+    title: `T${i}`, url: `https://r${i}.example.com`, snippet: "S",
+  }));
+  const providers = [makeProvider("p", async () => manyResults)];
+  const { results } = await searchWithProviders("q", 3, providers);
+  assert.equal(results.length, 3);
+});
