@@ -24,14 +24,31 @@ Provider chain (tried in order, first with results wins):
 
 ### `fetch_content`
 
-Fetches a URL and returns clean, token-efficient prose extracted via Mozilla Readability.
+Fetches a URL and returns clean, token-efficient content.
 
-| Parameter   | Type   | Required | Default      | Description                                                  |
-| ----------- | ------ | -------- | ------------ | ------------------------------------------------------------ |
-| `url`       | string | yes      | —            | URL to fetch; must be on the allow-list (see below)          |
-| `maxTokens` | number | no       | 8,000        | Token budget for the returned content (max 16,000)           |
+| Parameter   | Type   | Required | Default              | Description                                                                                              |
+| ----------- | ------ | -------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `url`       | string | yes      | —                    | URL to fetch; must be on the allow-list (see below)                                                      |
+| `maxTokens` | number | no       | 8,000                | Token budget for the returned content (max 16,000)                                                       |
+| `query`     | string | no       | current session prompt | Relevance filter — only paragraphs matching this query are returned; omit to use the auto-derived prompt |
 
-Returns the article body in markdown (headings, paragraphs, code blocks preserved). Token count is approximated as `chars / 4`. Non-HTML responses (plain text, JSON, markdown) are returned verbatim. Up to 3 fetches run concurrently; each request times out after 30 seconds.
+**HTML pages** are processed via Mozilla Readability to strip nav/ads/boilerplate, then converted to markdown (headings, paragraphs, code blocks, links preserved).
+
+**GitHub URLs** are routed to repository content instead of HTML scraping:
+
+| URL shape | What is returned |
+| --------- | ---------------- |
+| `github.com/<owner>/<repo>` | Full recursive file tree + README |
+| `github.com/<owner>/<repo>/tree/<ref>/<path>` | Directory listing under `<path>` |
+| `github.com/<owner>/<repo>/blob/<ref>/<path>` | Raw file contents |
+
+Root repos ≤ 350 MB are fetched via `git clone --depth 1`; larger repos use the GitHub API tree endpoint (`?recursive=1`). Private repos require `gh auth login` — a clear error is returned if the CLI is unavailable or unauthenticated.
+
+**Prompt-filtered fetch:** after HTML extraction, content is filtered to paragraphs relevant to the active query before the token budget is applied. The query defaults to the user's most recent prompt; override it per call via the `query` parameter. If the query is empty or consists entirely of stopwords, the full content is returned unfiltered.
+
+The expanded result view (Ctrl+O) shows `via: html | text | github-api | github-clone` to indicate which extraction path was taken.
+
+Token count is approximated as `chars / 4`. Non-HTML responses (plain text, JSON, markdown) are returned verbatim without filtering. Up to 3 fetches run concurrently; each request times out after 30 seconds.
 
 ## URL allow-list
 
@@ -75,7 +92,8 @@ Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missin
 - **No JavaScript rendering:** static HTTP fetch only. Pages that rely on JavaScript execution to populate content (SPAs, React/Next.js apps) may return empty or partial content.
 - **No PDF extraction:** PDFs return binary or text content without specialised parsing.
 - **No video:** YouTube and other video URLs are not handled.
-- **No GitHub clone:** GitHub URLs are scraped as HTML, not cloned. Raw file contents are not returned.
+- **GitHub clone requires `git`:** root repo fetches below the 350 MB threshold run `git clone --depth 1`, which requires `git` on `$PATH`. Repos above the threshold use the GitHub API instead.
+- **GitHub API rate limits:** unauthenticated requests are capped at 60/hr. Authenticate with `gh auth login` to raise the limit and enable private repo access.
 - **DuckDuckGo rate limiting:** DuckDuckGo's HTML endpoint occasionally returns a bot-detection interstitial (HTTP 202) with no results; Bing is the automatic fallback.
 - **Token approximation:** the `chars / 4` token estimate may deviate ±20% from actual tokeniser output.
 

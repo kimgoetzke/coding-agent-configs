@@ -11,6 +11,8 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 
+import { applyPromptFilter } from "./prompt-filter.ts";
+
 export const DEFAULT_MAX_TOKENS = 8_000;
 const MAX_TOKENS_CAP = 16_000;
 
@@ -24,6 +26,7 @@ export interface ExtractionResult {
   content: string;
   contentTokensApprox: number;
   truncated: boolean;
+  source: "html" | "text" | "github-api" | "github-clone";
 }
 
 // ── Token budget ──────────────────────────────────────────────────────────────
@@ -162,6 +165,7 @@ export async function extractContent(
   url: string,
   maxTokens = DEFAULT_MAX_TOKENS,
   signal?: AbortSignal,
+  query?: string,
 ): Promise<ExtractionResult> {
   const effectiveSignal = signal ?? AbortSignal.timeout(30_000);
 
@@ -184,7 +188,7 @@ export async function extractContent(
   if (isHtml) {
     const extracted = extractFromHtml(rawBody, url);
     title = extracted.title;
-    text = extracted.markdown;
+    text = query ? applyPromptFilter(extracted.markdown, query) : extracted.markdown;
   } else {
     text = rawBody;
   }
@@ -196,5 +200,6 @@ export async function extractContent(
     content,
     contentTokensApprox: Math.round(content.length / 4),
     truncated,
+    source: isHtml ? "html" : "text",
   };
 }

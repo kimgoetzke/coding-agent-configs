@@ -28,6 +28,7 @@ import { Type } from "@sinclair/typebox";
 import { ConcurrencyLimiter } from "./concurrency.js";
 import { loadConfig } from "./config.js";
 import { DEFAULT_MAX_TOKENS, extractContent } from "./content-extractor.js";
+import { clearCloneCache, fetchGitHubContent, parseGitHubUrl } from "./github-router.js";
 import { truncateBody } from "./rendering.js";
 import { type ProviderAttempt, type SearchResult, search } from "./search-providers.js";
 import { addUrls, addUrlsFromText, clear, getAllowed, isAllowed } from "./url-allowlist.js";
@@ -49,6 +50,8 @@ interface FetchContentDetails {
   content: string;
   contentTokensApprox: number;
   truncated: boolean;
+  queryFilter: string | null;
+  source: "html" | "text" | "github-api" | "github-clone";
   model: string;
 }
 
@@ -65,6 +68,12 @@ const FetchContentParams = Type.Object({
   url: Type.String({ description: "URL to fetch" }),
   maxTokens: Type.Optional(
     Type.Number({ description: "Maximum tokens to return (reserved for Phase 5)" }),
+  ),
+  query: Type.Optional(
+    Type.String({
+      description:
+        "Relevance filter — only paragraphs matching this query are returned; defaults to the current session prompt",
+    }),
   ),
 });
 
@@ -87,11 +96,15 @@ function formatSearchResults(
   }
   // Append notes so the agent can make informed decisions about result quality.
   if (provider === "wikipedia") {
-    lines.push("\n\nNote: All other providers failed or returned no results; these results are from Wikipedia only (narrow domain — consider telling the user that search quality may be limited).");
+    lines.push(
+      "\n\nNote: All other providers failed or returned no results; these results are from Wikipedia only (narrow domain — consider telling the user that search quality may be limited).",
+    );
   }
   const rateLimited = attempts.filter((a) => a.outcome === "rate_limited");
   if (rateLimited.length > 0) {
-    lines.push(`\nNote: Rate limiting was applied to: ${rateLimited.map((a) => a.name).join(", ")}. If results are poor, consider waiting before retrying.`);
+    lines.push(
+      `\nNote: Rate limiting was applied to: ${rateLimited.map((a) => a.name).join(", ")}. If results are poor, consider waiting before retrying.`,
+    );
   }
   return lines.join("\n");
 }
@@ -100,15 +113,19 @@ export default function (pi: ExtensionAPI) {
   const { config, warning: configWarning } = loadConfig();
   if (configWarning) console.warn(configWarning);
 
+  let lastAgentPrompt = "";
+
   pi.on("session_start", (event: { reason: string }) => {
     if (FRESH_SESSION_REASONS.has(event.reason)) {
       clear();
+      clearCloneCache();
     }
     return undefined;
   });
 
   pi.on("before_agent_start", (event: { prompt: string }) => {
     addUrlsFromText(event.prompt);
+    lastAgentPrompt = event.prompt;
     return undefined;
   });
 
@@ -131,7 +148,9 @@ export default function (pi: ExtensionAPI) {
       let attempts: ProviderAttempt[];
 
       try {
-        ({ results, provider, searchUrl, attempts } = await search(params.query, maxResults, { searxngUrl: config.searxngUrl }));
+        ({ results, provider, searchUrl, attempts } = await search(params.query, maxResults, {
+          searxngUrl: config.searxngUrl,
+        }));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
@@ -146,7 +165,14 @@ export default function (pi: ExtensionAPI) {
       const model = ctx.model?.id ?? "unknown";
       return {
         content: [{ type: "text", text: content }],
-        details: { query: params.query, searchUrl, results, provider, attempts, model } satisfies WebSearchDetails,
+        details: {
+          query: params.query,
+          searchUrl,
+          results,
+          provider,
+          attempts,
+          model,
+        } satisfies WebSearchDetails,
       };
     },
 
@@ -173,52 +199,55 @@ export default function (pi: ExtensionAPI) {
 
       if (!expanded || !details) {
         return new Text(
-          theme.fg("toolOutput", `${resultCount} results returned`) + theme.fg("muted", " (Ctrl+O to expand)"),
+          theme.fg("toolOutput", `${resultCount} results returned`) +
+            theme.fg("muted", " (Ctrl+O to expand)"),
           0,
           0,
         );
       }
 
       const container = new Container();
-      container.addChild(new Text(
-        theme.fg("dim", "term: ") + theme.fg("accent", details.query),
-        0, 0,
-      ));
+      container.addChild(
+        new Text(theme.fg("dim", "term: ") + theme.fg("accent", details.query), 0, 0),
+      );
       if (details.searchUrl) {
-        container.addChild(new Text(
-          theme.fg("dim", "url: ") + theme.fg("accent", details.searchUrl),
-          0, 0,
-        ));
+        container.addChild(
+          new Text(theme.fg("dim", "url: ") + theme.fg("accent", details.searchUrl), 0, 0),
+        );
       }
       const providerLines = details.attempts
         .map((a) => {
           switch (a.outcome) {
-            case "success": return `  - ${a.name}: ${a.resultCount} results`;
-            case "empty": return `  - ${a.name}: 0 results`;
-            case "rate_limited": return `  - ${a.name}: rate limited`;
-            case "skipped": return `  - ${a.name}: ${a.skipReason ?? "skipped"}`;
-            case "error": return `  - ${a.name}: error`;
+            case "success":
+              return `  - ${a.name}: ${a.resultCount} results`;
+            case "empty":
+              return `  - ${a.name}: 0 results`;
+            case "rate_limited":
+              return `  - ${a.name}: rate limited`;
+            case "skipped":
+              return `  - ${a.name}: ${a.skipReason ?? "skipped"}`;
+            case "error":
+              return `  - ${a.name}: error`;
           }
         })
         .join("\n");
-      container.addChild(new Text(
-        theme.fg("dim", `providers:\n${providerLines}`),
-        0, 0,
-      ));
+      container.addChild(new Text(theme.fg("dim", `providers:\n${providerLines}`), 0, 0));
       container.addChild(new Spacer(1));
       for (const [i, r] of details.results.entries()) {
-        container.addChild(new Text(
-          theme.fg("toolOutput", `${i + 1}. ${r.title}`) + "\n" +
-          theme.fg("accent", `   ${r.url}`) + "\n" +
-          theme.fg("dim", `   ${truncateBody(r.snippet, 200)}`),
-          0, 0,
-        ));
+        container.addChild(
+          new Text(
+            theme.fg("toolOutput", `${i + 1}. ${r.title}`) +
+              "\n" +
+              theme.fg("accent", `   ${r.url}`) +
+              "\n" +
+              theme.fg("dim", `   ${truncateBody(r.snippet, 200)}`),
+            0,
+            0,
+          ),
+        );
       }
       container.addChild(new Spacer(1));
-      container.addChild(new Text(
-        theme.fg("dim", `model: ${details.model}`),
-        0, 0,
-      ));
+      container.addChild(new Text(theme.fg("dim", `model: ${details.model}`), 0, 0));
       return container;
     },
   });
@@ -253,10 +282,14 @@ export default function (pi: ExtensionAPI) {
       }
 
       const maxTokens = params.maxTokens ?? config.defaultMaxTokens ?? DEFAULT_MAX_TOKENS;
+      const effectiveQuery = params.query ?? lastAgentPrompt;
       let extracted;
       try {
+        const githubDescriptor = parseGitHubUrl(params.url);
         extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
-          extractContent(params.url, maxTokens, signal ?? undefined),
+          githubDescriptor
+            ? fetchGitHubContent(githubDescriptor, maxTokens, signal ?? undefined)
+            : extractContent(params.url, maxTokens, signal ?? undefined, effectiveQuery),
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -278,6 +311,8 @@ export default function (pi: ExtensionAPI) {
           content: extracted.content,
           contentTokensApprox: extracted.contentTokensApprox,
           truncated: extracted.truncated,
+          queryFilter: effectiveQuery || null,
+          source: extracted.source,
           model,
         } satisfies FetchContentDetails,
       };
@@ -308,36 +343,50 @@ export default function (pi: ExtensionAPI) {
       if (!expanded || !details) {
         const truncNote = truncated ? " (truncated)" : "";
         return new Text(
-          theme.fg("toolOutput", `~${tokenCount} tokens returned${truncNote}`) + theme.fg("muted", " (Ctrl+O to expand)"),
+          theme.fg("toolOutput", `~${tokenCount} tokens returned${truncNote}`) +
+            theme.fg("muted", " (Ctrl+O to expand)"),
           0,
           0,
         );
       }
 
       const container = new Container();
-      container.addChild(new Text(
-        theme.fg("dim", "url: ") + theme.fg("accent", details.url),
-        0, 0,
-      ));
-      container.addChild(new Text(
-        theme.fg("dim", "title: ") + theme.fg("toolOutput", details.title ?? "(none)"),
-        0, 0,
-      ));
-      container.addChild(new Text(
-        theme.fg("dim", `model: ${details.model}`),
-        0, 0,
-      ));
+      container.addChild(
+        new Text(theme.fg("dim", "url: ") + theme.fg("accent", details.url), 0, 0),
+      );
+      container.addChild(
+        new Text(
+          theme.fg("dim", "title: ") + theme.fg("toolOutput", details.title ?? "(none)"),
+          0,
+          0,
+        ),
+      );
+      container.addChild(
+        new Text(theme.fg("dim", "via: ") + theme.fg("dim", details.source), 0, 0),
+      );
+      if (details.queryFilter) {
+        container.addChild(
+          new Text(
+            theme.fg("dim", "filter: ") +
+              theme.fg(
+                "dim",
+                details.queryFilter.length > 80
+                  ? `${details.queryFilter.slice(0, 80)}…`
+                  : details.queryFilter,
+              ),
+            0,
+            0,
+          ),
+        );
+      }
+      container.addChild(new Text(theme.fg("dim", `model: ${details.model}`), 0, 0));
       container.addChild(new Spacer(1));
-      container.addChild(new Text(
-        theme.fg("toolOutput", truncateBody(details.content, 4000)),
-        0, 0,
-      ));
+      container.addChild(
+        new Text(theme.fg("toolOutput", truncateBody(details.content, 2000)), 0, 0),
+      );
       container.addChild(new Spacer(1));
       const footer = `~${details.contentTokensApprox} tokens${details.truncated ? " (truncated)" : ""}`;
-      container.addChild(new Text(
-        theme.fg("dim", footer),
-        0, 0,
-      ));
+      container.addChild(new Text(theme.fg("dim", footer), 0, 0));
       return container;
     },
   });
