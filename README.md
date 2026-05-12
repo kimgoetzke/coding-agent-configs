@@ -101,7 +101,7 @@ If you use Pi, the starter extensions included in this repo are:
 | `message-timestamps`      | Annotates messages with timestamps                                                                   |
 | `subagent-support`        | Delegates work to isolated Pi subprocesses, each with its own context window                         |
 | `usage-statistics`        | Tracks and displays token usage across sessions                                                      |
-| `web-search`              | `web_search` and `fetch_content` tools — structured, token-efficient web access, no API key required |
+| `web-tools`               | `web_search` and `fetch_content` tools — structured, token-efficient web access, no API key required |
 
 ## Attribution
 

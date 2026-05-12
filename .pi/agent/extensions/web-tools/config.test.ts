@@ -7,15 +7,15 @@ import { tmpdir } from "node:os";
 import { loadConfig } from "./config.ts";
 
 function tempConfigFile(content: string): { path: string; cleanup: () => void } {
-  const dir = join(tmpdir(), `web-search-config-test-${Date.now()}`);
+  const dir = join(tmpdir(), `web-tools-config-test-${Date.now()}`);
   mkdirSync(dir, { recursive: true });
-  const path = join(dir, "web-search.json");
+  const path = join(dir, "web-tools.json");
   writeFileSync(path, content, "utf8");
   return { path, cleanup: () => rmSync(dir, { recursive: true }) };
 }
 
 test("loadConfig returns empty config with no warning for a missing file", () => {
-  const { config, warning } = loadConfig("/tmp/nonexistent-web-search-config-xyz.json");
+  const { config, warning } = loadConfig("/tmp/nonexistent-web-tools-config-xyz.json");
   assert.deepEqual(config, {});
   assert.equal(warning, undefined);
 });

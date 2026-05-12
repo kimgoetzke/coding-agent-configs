@@ -1,5 +1,5 @@
 /**
- * Web Search extension
+ * Web Tools extension
  *
  * Registers two LLM-callable tools:
  *   - web_search: searches via DuckDuckGo HTML → Bing → SearXNG (optional) → Wikipedia.
@@ -10,7 +10,7 @@
  *     Rejects URLs not in the allow-list (must come from a prior web_search
  *     result or from a URL the user typed explicitly in the same turn).
  *
- * Configuration (optional): ~/.pi/agent/web-search.json
+ * Configuration (optional): ~/.pi/agent/web-tools.json
  *   { searxngUrl?: string, defaultMaxTokens?: number, providers?: string[] }
  *
  * Lifecycle hooks:

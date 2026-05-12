@@ -1,5 +1,5 @@
 /**
- * Pure rendering helpers for the web-search extension.
+ * Pure rendering helpers for the web-tools extension.
  */
 
 /**

@@ -1,10 +1,10 @@
 {
-  "name": "pi-web-search-extension",
+  "name": "pi-web-tools-extension",
   "private": true,
   "type": "module",
   "pi": {
     "extensions": [
-      "./web-search.ts"
+      "./web-tools.ts"
     ]
   },
   "scripts": {

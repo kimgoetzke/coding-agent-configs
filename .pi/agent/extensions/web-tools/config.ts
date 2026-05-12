@@ -13,7 +13,7 @@ export interface WebSearchConfig {
 const VALID_PROVIDERS = new Set<string>(["duckduckgo", "bing", "searxng", "wikipedia"]);
 
 export function loadConfig(configPath?: string): { config: WebSearchConfig; warning?: string } {
-  const path = configPath ?? join(homedir(), ".pi", "agent", "web-search.json");
+  const path = configPath ?? join(homedir(), ".pi", "agent", "web-tools.json");
 
   let text: string;
   try {
@@ -26,11 +26,11 @@ export function loadConfig(configPath?: string): { config: WebSearchConfig; warn
   try {
     parsed = JSON.parse(text);
   } catch {
-    return { config: {}, warning: `web-search: config at ${path} is not valid JSON — using defaults` };
+    return { config: {}, warning: `web-tools: config at ${path} is not valid JSON — using defaults` };
   }
 
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return { config: {}, warning: `web-search: config at ${path} must be a JSON object — using defaults` };
+    return { config: {}, warning: `web-tools: config at ${path} must be a JSON object — using defaults` };
   }
 
   const obj = parsed as Record<string, unknown>;

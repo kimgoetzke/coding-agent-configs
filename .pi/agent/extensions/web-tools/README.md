@@ -1,4 +1,4 @@
-# Pi web-search extension
+# Pi web-tools extension
 
 Registers two LLM-callable tools — `web_search` and `fetch_content` — that give Pi structured, token-efficient web access without requiring any API key.
 
@@ -54,7 +54,7 @@ Token counting uses a `chars / 4` approximation to avoid pulling a tokeniser dep
 
 ## Optional config file
 
-Create `~/.pi/agent/web-search.json` to override defaults. Missing file or missing keys fall back silently. An invalid file logs a warning and falls back to defaults.
+Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missing keys fall back silently. An invalid file logs a warning and falls back to defaults.
 
 ```json
 {
@@ -85,13 +85,13 @@ Copy this folder into your Pi config:
 
 ```bash
 mkdir -p ~/.pi/agent/extensions
-cp -R .pi/agent/extensions/web-search ~/.pi/agent/extensions/web-search
+cp -R .pi/agent/extensions/web-tools ~/.pi/agent/extensions/web-tools
 ```
 
 Install dependencies:
 
 ```bash
-cd ~/.pi/agent/extensions/web-search
+cd ~/.pi/agent/extensions/web-tools
 nix shell nixpkgs#nodejs --command npm install
 ```
 
