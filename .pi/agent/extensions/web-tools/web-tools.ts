@@ -32,6 +32,7 @@ import { clearCloneCache, fetchGitHubContent, parseGitHubUrl } from "./github-ro
 import { truncateBody } from "./rendering.js";
 import { type ProviderAttempt, type SearchResult, search } from "./search-providers.js";
 import { addUrls, addUrlsFromText, clear, getAllowed, isAllowed } from "./url-allowlist.js";
+import { type ResolvedModel, resolveCheapModel, summarizeContent } from "./cheap-model.js";
 
 const FETCH_CONCURRENCY_LIMITER = new ConcurrencyLimiter(3);
 
@@ -53,6 +54,7 @@ interface FetchContentDetails {
   queryFilter: string | null;
   source: "html" | "text" | "github-api" | "github-clone";
   model: string;
+  cheapModel: string;
 }
 
 const FRESH_SESSION_REASONS = new Set(["startup", "new", "resume", "fork"]);
@@ -114,11 +116,14 @@ export default function (pi: ExtensionAPI) {
   if (configWarning) console.warn(configWarning);
 
   let lastAgentPrompt = "";
+  // undefined = not yet probed; null = probed but unavailable; ResolvedModel = ready to use
+  let resolvedCheapModel: ResolvedModel | null | undefined = undefined;
 
   pi.on("session_start", (event: { reason: string }) => {
     if (FRESH_SESSION_REASONS.has(event.reason)) {
       clear();
       clearCloneCache();
+      resolvedCheapModel = undefined;
     }
     return undefined;
   });
@@ -162,7 +167,7 @@ export default function (pi: ExtensionAPI) {
       addUrls(results.map((r) => r.url));
 
       const content = formatSearchResults(params.query, results, provider, attempts);
-      const model = ctx.model?.id ?? "unknown";
+      const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "unknown";
       return {
         content: [{ type: "text", text: content }],
         details: {
@@ -232,6 +237,7 @@ export default function (pi: ExtensionAPI) {
         })
         .join("\n");
       container.addChild(new Text(theme.fg("dim", `providers:\n${providerLines}`), 0, 0));
+      container.addChild(new Text(theme.fg("dim", `model: ${details.model}`), 0, 0));
       container.addChild(new Spacer(1));
       for (const [i, r] of details.results.entries()) {
         container.addChild(
@@ -247,7 +253,6 @@ export default function (pi: ExtensionAPI) {
         );
       }
       container.addChild(new Spacer(1));
-      container.addChild(new Text(theme.fg("dim", `model: ${details.model}`), 0, 0));
       return container;
     },
   });
@@ -283,13 +288,26 @@ export default function (pi: ExtensionAPI) {
 
       const maxTokens = params.maxTokens ?? config.defaultMaxTokens ?? DEFAULT_MAX_TOKENS;
       const effectiveQuery = params.query ?? lastAgentPrompt;
+
+      // Resolve cheap model before extracting so we can skip the prompt filter
+      // when a cheap model is available — it does its own relevance filtering,
+      // and pre-filtering strips context the cheap model needs to summarise well.
+      if (resolvedCheapModel === undefined) {
+        resolvedCheapModel = await resolveCheapModel(ctx.modelRegistry, config);
+      }
+
       let extracted;
       try {
         const githubDescriptor = parseGitHubUrl(params.url);
         extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
           githubDescriptor
             ? fetchGitHubContent(githubDescriptor, maxTokens, signal ?? undefined)
-            : extractContent(params.url, maxTokens, signal ?? undefined, effectiveQuery),
+            : extractContent(
+                params.url,
+                maxTokens,
+                signal ?? undefined,
+                resolvedCheapModel !== null ? undefined : effectiveQuery,
+              ),
         );
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -298,22 +316,38 @@ export default function (pi: ExtensionAPI) {
           isError: true,
         };
       }
+      const summaryText =
+        resolvedCheapModel !== null
+          ? await summarizeContent(
+              resolvedCheapModel,
+              extracted.content,
+              effectiveQuery,
+              signal ?? undefined,
+            )
+          : null;
 
-      const model = ctx.model?.id ?? "unknown";
+      const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "unknown";
       const truncationNote = extracted.truncated
         ? `\n\n[Content truncated to ~${maxTokens} tokens]`
         : "";
+      const agentContent = summaryText ?? extracted.content + truncationNote;
       return {
-        content: [{ type: "text", text: extracted.content + truncationNote }],
+        content: [{ type: "text", text: agentContent }],
         details: {
           url: extracted.url,
           title: extracted.title,
-          content: extracted.content,
+          content: summaryText ?? extracted.content,
           contentTokensApprox: extracted.contentTokensApprox,
           truncated: extracted.truncated,
           queryFilter: effectiveQuery || null,
           source: extracted.source,
           model,
+          cheapModel:
+            resolvedCheapModel === null
+              ? "n/a - failed to resolve cheap model"
+              : summaryText !== null
+                ? `${resolvedCheapModel.provider}/${resolvedCheapModel.id} (active)`
+                : `${resolvedCheapModel.provider}/${resolvedCheapModel.id} (failed)`,
         } satisfies FetchContentDetails,
       };
     },
@@ -380,6 +414,7 @@ export default function (pi: ExtensionAPI) {
         );
       }
       container.addChild(new Text(theme.fg("dim", `model: ${details.model}`), 0, 0));
+      container.addChild(new Text(theme.fg("dim", `summarised by: ${details.cheapModel}`), 0, 0));
       container.addChild(new Spacer(1));
       container.addChild(
         new Text(theme.fg("toolOutput", truncateBody(details.content, 2000)), 0, 0),

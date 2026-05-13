@@ -1,6 +1,6 @@
 # Pi web-tools extension
 
-Registers two LLM-callable tools — `web_search` and `fetch_content` — that give Pi structured, token-efficient web access without requiring any API key.
+Registers two LLM-callable tools — `web_search` and `fetch_content` — that give Pi structured, token-efficient web access without requiring any API key. With only the default tools, the agent will have to use `curl` or similar which will use significantly more tokens and fill up the context window much faster.
 
 ## Tools
 
@@ -69,6 +69,26 @@ The default budget is **8,000 tokens (~32,000 characters)** per page. Truncation
 
 Token counting uses a `chars / 4` approximation to avoid pulling a tokeniser dependency. Actual token counts may differ by ±20%.
 
+## Content summarisation
+
+When `fetch_content` is called, web-tools will attempt to summarise the extracted page content using a cheap/fast model before returning it to the main agent. This reduces token usage and focuses the result on the active query.
+
+**Auto-detection:** on first use per session, the extension probes a priority list of cheap models from major AI labs (Anthropic Haiku → Google Gemini Flash Lite → OpenAI GPT-4.1 Nano → OpenAI GPT-4o-mini → DeepSeek Chat). The first one with valid auth configured in Pi is used for the rest of the session.
+
+**Returned format:** when summarised, the content begins with a header so the main agent can attribute correctly:
+
+```
+[Content summarised by anthropic/claude-haiku-4-5-20251001 — this is a summary, not verbatim page text]
+
+{summary text}
+```
+
+**Graceful fallback:** if no cheap model has valid auth, or the model call fails, the raw extracted content is returned as normal.
+
+**Opt-out:** set `"cheapModels": []` in `web-tools.json` to disable summarisation entirely.
+
+**User override:** set `"cheapModels"` to a specific list (format `"provider/model-id"`) to control which models are tried and in what order.
+
 ## Optional config file
 
 Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missing keys fall back silently. An invalid file logs a warning and falls back to defaults.
@@ -81,11 +101,12 @@ Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missin
 }
 ```
 
-| Field              | Type     | Description                                                      |
-| ------------------ | -------- | ---------------------------------------------------------------- |
-| `searxngUrl`       | string   | Base URL of a SearXNG instance; enables the SearXNG provider    |
-| `defaultMaxTokens` | number   | Default token budget for `fetch_content` (overridable per call) |
-| `providers`        | string[] | Provider order override; valid values listed above               |
+| Field              | Type     | Description                                                                                                                       |
+| ------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `searxngUrl`       | string   | Base URL of a SearXNG instance; enables the SearXNG provider                                                                     |
+| `defaultMaxTokens` | number   | Default token budget for `fetch_content` (overridable per call)                                                                  |
+| `providers`        | string[] | Provider order override; valid values listed above                                                                                |
+| `cheapModels`      | string[] | Models to use for content summarisation, format `"provider/model-id"`. Set to `[]` to disable. Omit to use the auto-detect list. |
 
 ## Known limitations
 

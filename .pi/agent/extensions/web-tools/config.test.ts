@@ -94,3 +94,43 @@ test("loadConfig ignores unknown extra keys silently", () => {
     cleanup();
   }
 });
+
+test("loadConfig extracts cheapModels from valid config", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ cheapModels: ["anthropic/claude-haiku-4-5-20251001", "google/gemini-2.5-flash-lite"] }));
+  try {
+    const { config } = loadConfig(path);
+    assert.deepEqual(config.cheapModels, ["anthropic/claude-haiku-4-5-20251001", "google/gemini-2.5-flash-lite"]);
+  } finally {
+    cleanup();
+  }
+});
+
+test("loadConfig accepts empty cheapModels array (opt-out signal)", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ cheapModels: [] }));
+  try {
+    const { config } = loadConfig(path);
+    assert.deepEqual(config.cheapModels, []);
+  } finally {
+    cleanup();
+  }
+});
+
+test("loadConfig ignores cheapModels when it contains non-string entries", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ cheapModels: ["anthropic/claude-haiku-4-5-20251001", 42] }));
+  try {
+    const { config } = loadConfig(path);
+    assert.equal(config.cheapModels, undefined);
+  } finally {
+    cleanup();
+  }
+});
+
+test("loadConfig leaves cheapModels undefined when not in config", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ searxngUrl: "https://s.example.com" }));
+  try {
+    const { config } = loadConfig(path);
+    assert.equal(config.cheapModels, undefined);
+  } finally {
+    cleanup();
+  }
+});
