@@ -17,16 +17,28 @@ Run one of the commands below for your coding agent. The script will ask if you 
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --claude
 ```
 
+```powershell
+& ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent claude
+```
+
 **GitHub Copilot:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --copilot
 ```
 
+```powershell
+& ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent copilot
+```
+
 **Pi:**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --pi
+```
+
+```powershell
+& ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent pi
 ```
 
 For Claude Code and GitHub Copilot, this still will not install any hooks for you though. Pick and choose from the `/hooks` directory.
