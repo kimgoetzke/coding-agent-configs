@@ -1,7 +1,7 @@
 ---
 name: research-mode
 description: Toggle persistent research mode on/off. When on, hook support can remind the agent to keep the research document updated throughout the conversation, with manual fallback if unavailable. Use with a research topic to start, with "continue" to resume an existing research doc, or with "off" to stop.
-argument-hint: [topic or 'continue' or 'off' or empty]
+argument-hint: [topic to research | 'continue' | 'off' | empty to start without topic]
 ---
 
 ## Usage

@@ -1,7 +1,7 @@
 ---
 name: review-pr
 description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, score each review dimension red-amber-green, and produce a structured review saved to disk and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
-argument-hint: [PR number/URL or empty to compare current branch to main/master]
+argument-hint: [PR number or URL | empty to compare current branch to main/master]
 ---
 
 # Review PR

@@ -1,7 +1,7 @@
 ---
 name: persist
 description: Store your findings, analysis, or other outcomes on disk for future reference. Use when user asks you to do something that does not explicitly mention planning but clearly does not involve taking action yet e.g. analysing or investigating something.
-argument-hint: [topic to persist or empty to summarise the conversation so far]
+argument-hint: [topic to persist | empty to summarise the conversation so far]
 ---
 
 ## Core idea

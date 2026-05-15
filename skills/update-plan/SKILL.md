@@ -1,7 +1,7 @@
 ---
 name: update-plan
 description: Updates planning documents created using the planning-mode or planning skill after questions.md has been updated by the user. Supports an interactive `ask` mode that prompts the user for any still-unanswered questions in real-time. Use when user asks to update the plan after answering your questions, or when they want to walk through unanswered questions interactively.
-argument-hint: [ask for interactive mode | full or partial folder name | empty]
+argument-hint: [full or partial folder name when no context | empty when plan in context | 'ask' for interactive mode in context]
 ---
 
 # Update Plan from User Responses

@@ -1,7 +1,7 @@
 ---
 name: fetch-plan
 description: Retrieve saved plan folders from `.ai/planning`, let the user choose one, then load its planning documents and summarise implementation status. Use when user asks to fetch, reopen, resume, continue, or inspect an existing plan.
-argument-hint: [full or partial folder name or empty]
+argument-hint: [empty to list available | full or partial folder name]
 ---
 
 # Fetch a Saved Plan
