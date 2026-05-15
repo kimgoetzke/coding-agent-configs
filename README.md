@@ -13,33 +13,50 @@ Run one of the commands below for your coding agent. The script will ask if you 
 
 **Claude Code:**
 
+Bash:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --claude
 ```
 
+PowerShell:
 ```powershell
 & ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent claude
 ```
 
 **GitHub Copilot:**
 
+Bash:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --copilot
 ```
 
+PowerShell:
 ```powershell
 & ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent copilot
 ```
 
 **Pi:**
 
+Bash:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --pi
 ```
 
+PowerShell:
 ```powershell
 & ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent pi
 ```
+
+After running the above, you'll have to run `npm install` in some of the extension folders (`~/.pi/agent/extensions/{extension name}`):
+
+```
+cd ~/.pi/agent/extensions/web-tools
+npm install
+cd ~/.pi/agent/extensions/command-policy
+npm install
+```
+
+#### Notes
 
 For Claude Code and GitHub Copilot, this still will not install any hooks for you though. Pick and choose from the `/hooks` directory.
 
