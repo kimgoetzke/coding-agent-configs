@@ -312,7 +312,7 @@ if ask_yes_no "Install config files?"; then
   elif [ "$AGENT" = "copilot" ]; then
     CONFIG_FILES=("copilot-instructions.md" "hooks.json")
   else
-    CONFIG_FILES=("AGENT.md" "settings.json" "command-policy.json5")
+    CONFIG_FILES=("AGENTS.md" "settings.json" "command-policy.json5")
   fi
 
   mkdir -p "$AGENT_DIR"
