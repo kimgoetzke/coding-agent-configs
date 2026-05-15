@@ -5,3 +5,4 @@
 **/node_modules/*
 .pi/agent/extensions/pi-mcp-adapter/*
 .pi/agent/extensions/usage-statistics/*
+tmp/*
