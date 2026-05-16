@@ -26,7 +26,8 @@ export interface ExtractionResult {
   content: string;
   contentTokensApprox: number;
   truncated: boolean;
-  source: "html" | "text" | "github-api" | "github-clone";
+  source: "html" | "text" | "github-api" | "github-clone" | "browser-html";
+  rawHtml?: string;
 }
 
 // ── Token budget ──────────────────────────────────────────────────────────────
@@ -68,26 +69,38 @@ function nodeToMarkdown(node: any, depth = 0): string {
   const inner = () => children.map((c) => nodeToMarkdown(c, depth)).join("");
 
   switch (tag) {
-    case "h1": return `\n\n# ${inner().trim()}\n\n`;
-    case "h2": return `\n\n## ${inner().trim()}\n\n`;
-    case "h3": return `\n\n### ${inner().trim()}\n\n`;
-    case "h4": return `\n\n#### ${inner().trim()}\n\n`;
-    case "h5": return `\n\n##### ${inner().trim()}\n\n`;
-    case "h6": return `\n\n###### ${inner().trim()}\n\n`;
-    case "p": return `\n\n${inner().trim()}\n\n`;
-    case "br": return "\n";
-    case "ul": return `\n\n${children.map((c) => nodeToMarkdown(c, depth)).join("")}\n`;
+    case "h1":
+      return `\n\n# ${inner().trim()}\n\n`;
+    case "h2":
+      return `\n\n## ${inner().trim()}\n\n`;
+    case "h3":
+      return `\n\n### ${inner().trim()}\n\n`;
+    case "h4":
+      return `\n\n#### ${inner().trim()}\n\n`;
+    case "h5":
+      return `\n\n##### ${inner().trim()}\n\n`;
+    case "h6":
+      return `\n\n###### ${inner().trim()}\n\n`;
+    case "p":
+      return `\n\n${inner().trim()}\n\n`;
+    case "br":
+      return "\n";
+    case "ul":
+      return `\n\n${children.map((c) => nodeToMarkdown(c, depth)).join("")}\n`;
     case "ol": {
       let index = 0;
-      return `\n\n${children.map((c) => {
-        if ((c.tagName ?? "").toLowerCase() === "li") {
-          index++;
-          return `${index}. ${nodeToMarkdown(c, depth).trim()}\n`;
-        }
-        return nodeToMarkdown(c, depth);
-      }).join("")}\n`;
+      return `\n\n${children
+        .map((c) => {
+          if ((c.tagName ?? "").toLowerCase() === "li") {
+            index++;
+            return `${index}. ${nodeToMarkdown(c, depth).trim()}\n`;
+          }
+          return nodeToMarkdown(c, depth);
+        })
+        .join("")}\n`;
     }
-    case "li": return `- ${inner().trim()}\n`;
+    case "li":
+      return `- ${inner().trim()}\n`;
     case "pre": {
       const codeNode = children.find((c) => (c.tagName ?? "").toLowerCase() === "code");
       const codeContent = codeNode ? (codeNode.textContent ?? "") : inner();
@@ -104,11 +117,15 @@ function nodeToMarkdown(node: any, depth = 0): string {
       return `[${text}](${href})`;
     }
     case "strong":
-    case "b": return `**${inner()}**`;
+    case "b":
+      return `**${inner()}**`;
     case "em":
-    case "i": return `_${inner()}_`;
-    case "blockquote": return `\n\n> ${inner().trim().replace(/\n/g, "\n> ")}\n\n`;
-    case "hr": return "\n\n---\n\n";
+    case "i":
+      return `_${inner()}_`;
+    case "blockquote":
+      return `\n\n> ${inner().trim().replace(/\n/g, "\n> ")}\n\n`;
+    case "hr":
+      return "\n\n---\n\n";
     case "script":
     case "style":
     case "nav":
@@ -125,14 +142,17 @@ function nodeToMarkdown(node: any, depth = 0): string {
 
 function collapseWhitespace(text: string): string {
   return text
-    .replace(/^[ \t]+$/gm, "")    // blank lines that contain only spaces/tabs
-    .replace(/\n{3,}/g, "\n\n")   // 3+ consecutive newlines → 2
+    .replace(/^[ \t]+$/gm, "") // blank lines that contain only spaces/tabs
+    .replace(/\n{3,}/g, "\n\n") // 3+ consecutive newlines → 2
     .trim();
 }
 
 // ── HTML extraction ───────────────────────────────────────────────────────────
 
-export function extractFromHtml(html: string, url: string): { title: string | null; markdown: string } {
+export function extractFromHtml(
+  html: string,
+  url: string,
+): { title: string | null; markdown: string } {
   const { document } = parseHTML(html);
   // Readability mutates the document, so parse a fresh one for it.
   const { document: docForReadability } = parseHTML(html);
@@ -157,6 +177,13 @@ export function extractFromHtml(html: string, url: string): { title: string | nu
   }
 
   return { title, markdown };
+}
+
+// ── JS-rendered page heuristic ───────────────────────────────────────────────
+
+export function isLikelyJSRendered(markdown: string, rawHtml: string): boolean {
+  const scriptCount = (rawHtml.match(/<script/gi) ?? []).length;
+  return markdown.trim().length < 500 && scriptCount > 3;
 }
 
 // ── Main async entry point ────────────────────────────────────────────────────
@@ -201,5 +228,6 @@ export async function extractContent(
     contentTokensApprox: Math.round(content.length / 4),
     truncated,
     source: isHtml ? "html" : "text",
+    ...(isHtml ? { rawHtml: rawBody } : {}),
   };
 }

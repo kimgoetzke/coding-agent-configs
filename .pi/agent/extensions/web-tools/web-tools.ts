@@ -25,9 +25,10 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Container, Spacer, Text } from "@mariozechner/pi-tui";
 import { Type } from "@sinclair/typebox";
 
+import { closeBrowserSession, fetchWithBrowser, prewarmBrowserSession } from "./browser-fetcher.js";
 import { ConcurrencyLimiter } from "./concurrency.js";
 import { loadConfig } from "./config.js";
-import { DEFAULT_MAX_TOKENS, extractContent } from "./content-extractor.js";
+import { DEFAULT_MAX_TOKENS, extractContent, isLikelyJSRendered } from "./content-extractor.js";
 import { clearCloneCache, fetchGitHubContent, parseGitHubUrl } from "./github-router.js";
 import { truncateBody } from "./rendering.js";
 import { type ProviderAttempt, type SearchResult, search } from "./search-providers.js";
@@ -52,7 +53,8 @@ interface FetchContentDetails {
   contentTokensApprox: number;
   truncated: boolean;
   queryFilter: string | null;
-  source: "html" | "text" | "github-api" | "github-clone";
+  source: "html" | "text" | "github-api" | "github-clone" | "browser-html";
+  browserFallback?: boolean;
   model: string;
   cheapModel: string;
 }
@@ -123,6 +125,7 @@ export default function (pi: ExtensionAPI) {
     if (FRESH_SESSION_REASONS.has(event.reason)) {
       clear();
       clearCloneCache();
+      void closeBrowserSession();
       resolvedCheapModel = undefined;
     }
     return undefined;
@@ -131,6 +134,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", (event: { prompt: string }) => {
     addUrlsFromText(event.prompt);
     lastAgentPrompt = event.prompt;
+    prewarmBrowserSession();
     return undefined;
   });
 
@@ -297,18 +301,36 @@ export default function (pi: ExtensionAPI) {
       }
 
       let extracted;
+      let browserAttempted = false;
       try {
         const githubDescriptor = parseGitHubUrl(params.url);
-        extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
-          githubDescriptor
-            ? fetchGitHubContent(githubDescriptor, maxTokens, signal ?? undefined)
-            : extractContent(
+        if (githubDescriptor) {
+          extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
+            fetchGitHubContent(githubDescriptor, maxTokens, signal ?? undefined),
+          );
+        } else {
+          const staticResult = await FETCH_CONCURRENCY_LIMITER.run(() =>
+            extractContent(
+              params.url,
+              maxTokens,
+              signal ?? undefined,
+              resolvedCheapModel !== null ? undefined : effectiveQuery,
+            ),
+          );
+          if (isLikelyJSRendered(staticResult.content, staticResult.rawHtml ?? "")) {
+            browserAttempted = true;
+            extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
+              fetchWithBrowser(
                 params.url,
                 maxTokens,
                 signal ?? undefined,
                 resolvedCheapModel !== null ? undefined : effectiveQuery,
               ),
-        );
+            );
+          } else {
+            extracted = staticResult;
+          }
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
@@ -341,6 +363,8 @@ export default function (pi: ExtensionAPI) {
           truncated: extracted.truncated,
           queryFilter: effectiveQuery || null,
           source: extracted.source,
+          browserFallback:
+            browserAttempted && extracted.source !== "browser-html" ? true : undefined,
           model,
           cheapModel:
             resolvedCheapModel === null
@@ -395,9 +419,10 @@ export default function (pi: ExtensionAPI) {
           0,
         ),
       );
-      container.addChild(
-        new Text(theme.fg("dim", "via: ") + theme.fg("dim", details.source), 0, 0),
-      );
+      const viaLabel = details.browserFallback
+        ? `${details.source} (browser attempted, fell back)`
+        : details.source;
+      container.addChild(new Text(theme.fg("dim", "via: ") + theme.fg("dim", viaLabel), 0, 0));
       if (details.queryFilter) {
         container.addChild(
           new Text(

@@ -2,7 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
 
-import { applyTokenBudget, extractFromHtml, extractContent } from "./content-extractor.ts";
+import {
+  applyTokenBudget,
+  extractFromHtml,
+  extractContent,
+  isLikelyJSRendered,
+} from "./content-extractor.ts";
 
 // ── applyTokenBudget ──────────────────────────────────────────────────────────
 
@@ -83,8 +88,14 @@ const y = 2;</code></pre>
 
 test("extractFromHtml preserves h1/h2 headings as markdown headers", () => {
   const { markdown } = extractFromHtml(STRUCTURE_HTML_FIXTURE, "https://example.com/");
-  assert.ok(markdown.includes("# Top Heading") || markdown.includes("## Top Heading"), "h1 not in markdown");
-  assert.ok(markdown.includes("## Sub Heading") || markdown.includes("### Sub Heading"), "h2 not in markdown");
+  assert.ok(
+    markdown.includes("# Top Heading") || markdown.includes("## Top Heading"),
+    "h1 not in markdown",
+  );
+  assert.ok(
+    markdown.includes("## Sub Heading") || markdown.includes("### Sub Heading"),
+    "h2 not in markdown",
+  );
 });
 
 test("extractFromHtml preserves links as [text](url)", () => {
@@ -96,6 +107,28 @@ test("extractFromHtml preserves code blocks as fenced markdown", () => {
   const { markdown } = extractFromHtml(STRUCTURE_HTML_FIXTURE, "https://example.com/");
   assert.ok(markdown.includes("```"), "fenced code block missing");
   assert.ok(markdown.includes("const x = 1;"), "code content missing");
+});
+
+// ── isLikelyJSRendered ────────────────────────────────────────────────────────
+
+test("isLikelyJSRendered returns true when markdown is thin and html has many script tags", () => {
+  const thinMarkdown = "a".repeat(100);
+  const scriptHeavyHtml =
+    "<script></script><script></script><script></script><script></script><div></div>";
+  assert.equal(isLikelyJSRendered(thinMarkdown, scriptHeavyHtml), true);
+});
+
+test("isLikelyJSRendered returns false when markdown is thin but html has few script tags", () => {
+  const thinMarkdown = "a".repeat(100);
+  const lightHtml = "<script></script><div>content</div>";
+  assert.equal(isLikelyJSRendered(thinMarkdown, lightHtml), false);
+});
+
+test("isLikelyJSRendered returns false when html has many scripts but markdown is rich", () => {
+  const richMarkdown = "a".repeat(600);
+  const scriptHeavyHtml =
+    "<script></script><script></script><script></script><script></script><div></div>";
+  assert.equal(isLikelyJSRendered(richMarkdown, scriptHeavyHtml), false);
 });
 
 // ── extractContent (network) ──────────────────────────────────────────────────
@@ -114,6 +147,21 @@ function startServer(
     });
   });
 }
+
+test("extractContent includes rawHtml for HTML responses", async () => {
+  const html = `<!DOCTYPE html><html><body><article><p>${"x".repeat(600)}</p></article></body></html>`;
+  const { url, close } = await startServer((_req, res) => {
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+  });
+  try {
+    const result = await extractContent(url, 8_000);
+    assert.ok(result.rawHtml !== undefined, "rawHtml should be present for HTML responses");
+    assert.ok(result.rawHtml!.includes("<body>"), "rawHtml should contain raw HTML");
+  } finally {
+    close();
+  }
+});
 
 test("extractContent returns plain-text body verbatim for non-HTML responses", async () => {
   const plainText = "This is plain text content, not HTML.";
