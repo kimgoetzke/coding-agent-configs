@@ -50,6 +50,7 @@ Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missin
   "searxngUrl": "https://your-searxng-instance.example.com", // Empty by default
   "defaultMaxTokens": 8000, // Default
   "providers": ["duckduckgo", "bing", "searxng", "wikipedia"], // Default
+  "jsRendering": true, // Default
   "cheapModels": [
     "github-copilot/gpt-5-mini",
     "anthropic/claude-haiku-4-5-20251001",
@@ -69,6 +70,7 @@ Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missin
 | `searxngUrl`       | string   | Base URL of a SearXNG instance; enables the SearXNG provider                                                                     |
 | `defaultMaxTokens` | number   | Default token budget for `fetch_content` (overridable per call)                                                                  |
 | `providers`        | string[] | Provider order override; valid values listed above                                                                               |
+| `jsRendering`      | boolean  | Enable headless Chromium JS rendering (default `true`). Set to `false` to disable — no Chromium required, static fetch only.     |
 | `cheapModels`      | string[] | Models to use for content summarisation, format `"provider/model-id"`. Set to `[]` to disable. Omit to use the auto-detect list. |
 
 ## Tools

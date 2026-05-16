@@ -134,3 +134,43 @@ test("loadConfig leaves cheapModels undefined when not in config", () => {
     cleanup();
   }
 });
+
+test("loadConfig extracts jsRendering: false from valid config", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ jsRendering: false }));
+  try {
+    const { config } = loadConfig(path);
+    assert.equal(config.jsRendering, false);
+  } finally {
+    cleanup();
+  }
+});
+
+test("loadConfig extracts jsRendering: true from valid config", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ jsRendering: true }));
+  try {
+    const { config } = loadConfig(path);
+    assert.equal(config.jsRendering, true);
+  } finally {
+    cleanup();
+  }
+});
+
+test("loadConfig leaves jsRendering undefined when not in config", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ searxngUrl: "https://s.example.com" }));
+  try {
+    const { config } = loadConfig(path);
+    assert.equal(config.jsRendering, undefined);
+  } finally {
+    cleanup();
+  }
+});
+
+test("loadConfig ignores jsRendering when it is not a boolean", () => {
+  const { path, cleanup } = tempConfigFile(JSON.stringify({ jsRendering: "yes" }));
+  try {
+    const { config } = loadConfig(path);
+    assert.equal(config.jsRendering, undefined);
+  } finally {
+    cleanup();
+  }
+});

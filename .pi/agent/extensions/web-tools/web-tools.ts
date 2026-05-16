@@ -121,11 +121,13 @@ export default function (pi: ExtensionAPI) {
   // undefined = not yet probed; null = probed but unavailable; ResolvedModel = ready to use
   let resolvedCheapModel: ResolvedModel | null | undefined = undefined;
 
+  const jsRenderingEnabled = config.jsRendering !== false;
+
   pi.on("session_start", (event: { reason: string }) => {
     if (FRESH_SESSION_REASONS.has(event.reason)) {
       clear();
       clearCloneCache();
-      void closeBrowserSession();
+      if (jsRenderingEnabled) void closeBrowserSession();
       resolvedCheapModel = undefined;
     }
     return undefined;
@@ -134,7 +136,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("before_agent_start", (event: { prompt: string }) => {
     addUrlsFromText(event.prompt);
     lastAgentPrompt = event.prompt;
-    prewarmBrowserSession();
+    if (jsRenderingEnabled) prewarmBrowserSession();
     return undefined;
   });
 
@@ -317,7 +319,7 @@ export default function (pi: ExtensionAPI) {
               resolvedCheapModel !== null ? undefined : effectiveQuery,
             ),
           );
-          if (isLikelyJSRendered(staticResult.content, staticResult.rawHtml ?? "")) {
+          if (jsRenderingEnabled && isLikelyJSRendered(staticResult.content, staticResult.rawHtml ?? "")) {
             browserAttempted = true;
             extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
               fetchWithBrowser(

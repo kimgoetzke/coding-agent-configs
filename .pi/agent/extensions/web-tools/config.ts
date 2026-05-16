@@ -9,6 +9,7 @@ export interface WebSearchConfig {
   defaultMaxTokens?: number;
   providers?: Provider[];
   cheapModels?: string[];
+  jsRendering?: boolean;
 }
 
 const VALID_PROVIDERS = new Set<string>(["duckduckgo", "bing", "searxng", "wikipedia"]);
@@ -47,6 +48,8 @@ export function loadConfig(configPath?: string): { config: WebSearchConfig; warn
   if (Array.isArray(obj.cheapModels) && obj.cheapModels.every(m => typeof m === "string")) {
     config.cheapModels = obj.cheapModels as string[];
   }
+
+  if (typeof obj.jsRendering === "boolean") config.jsRendering = obj.jsRendering;
 
   return { config };
 }
