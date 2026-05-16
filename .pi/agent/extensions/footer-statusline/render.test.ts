@@ -1,6 +1,14 @@
 import { test } from "node:test";
 import { strict as assert } from "node:assert";
-import { formatTokens, truncatePlain, selectContextToken, buildContextDisplay, thinkingToken } from "./render.js";
+
+import {
+  buildContextDisplay,
+  formatTokens,
+  renderSeparatorLine,
+  selectContextToken,
+  thinkingToken,
+  truncatePlain,
+} from "./render.ts";
 
 // ---------------------------------------------------------------------------
 // formatTokens
@@ -110,4 +118,17 @@ test("thinkingToken: unknown level falls back to muted", () => {
   assert.equal(thinkingToken("unknown"), "muted");
   assert.equal(thinkingToken(""), "muted");
   assert.equal(thinkingToken(undefined), "muted");
+});
+
+// ---------------------------------------------------------------------------
+// renderSeparatorLine
+// ---------------------------------------------------------------------------
+
+test("renderSeparatorLine uses the accent token", () => {
+  assert.equal(
+    renderSeparatorLine(4, {
+      fg: (token, text) => `[${token}]${text}`,
+    }),
+    "[accent]────",
+  );
 });
