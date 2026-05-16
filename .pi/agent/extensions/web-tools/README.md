@@ -61,17 +61,23 @@ Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missin
     "openai/gpt-4o-mini",
     "openai/gpt-5-mini",
     "deepseek/deepseek-chat"
-  ] // Default
+  ], // Default
+  "forceVerbatimContentFetch": [
+    { "host": "internal.example.com" },
+    { "subdomain": "docs" },
+    { "pathPrefix": "/handbook/" }
+  ] // Optional: extends auto verbatim detection
 }
 ```
 
-| Field              | Type     | Description                                                                                                                      |
-| ------------------ | -------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `searxngUrl`       | string   | Base URL of a SearXNG instance; enables the SearXNG provider                                                                     |
-| `defaultMaxTokens` | number   | Default token budget for `fetch_content` (overridable per call)                                                                  |
-| `providers`        | string[] | Provider order override; valid values listed above                                                                               |
-| `jsRendering`      | boolean  | Enable headless Chromium JS rendering (default `true`). Set to `false` to disable — no Chromium required, static fetch only.     |
-| `cheapModels`      | string[] | Models to use for content summarisation, format `"provider/model-id"`. Set to `[]` to disable. Omit to use the auto-detect list. |
+| Field                       | Type       | Description                                                                                                                       |
+| --------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `searxngUrl`                | string     | Base URL of a SearXNG instance; enables the SearXNG provider                                                                      |
+| `defaultMaxTokens`          | number     | Default token budget for `fetch_content` (overridable per call)                                                                   |
+| `providers`                 | string[]   | Provider order override; valid values listed above                                                                                |
+| `jsRendering`               | boolean    | Enable headless Chromium JS rendering (default `true`). Set to `false` to disable — no Chromium required, static fetch only.     |
+| `cheapModels`               | string[]   | Models to use for content summarisation, format `"provider/model-id"`. Set to `[]` to disable. Omit to use the auto-detect list. |
+| `forceVerbatimContentFetch` | object[]   | Extra auto-mode rules that force verbatim output. Each rule may set `host`, `subdomain`, and/or `pathPrefix`; all defined fields must match. |
 
 ## Tools
 
@@ -102,6 +108,7 @@ Fetches a URL and returns clean, token-efficient content.
 | `url`       | string | yes      | —                      | URL to fetch; must be on the allow-list (see below)                                                      |
 | `maxTokens` | number | no       | 8,000                  | Token budget for the returned content (max 16,000)                                                       |
 | `query`     | string | no       | current session prompt | Relevance filter — only paragraphs matching this query are returned; omit to use the auto-derived prompt |
+| `mode`      | string | no       | `auto`                 | Fidelity mode: `auto`, `verbatim`, or `summary`                                                          |
 
 **HTML pages** are processed via Mozilla Readability to strip nav/ads/boilerplate, then converted to markdown (headings, paragraphs, code blocks, links preserved).
 
@@ -115,7 +122,21 @@ Fetches a URL and returns clean, token-efficient content.
 
 Root repos ≤ 350 MB are fetched via `git clone --depth 1`; larger repos use the GitHub API tree endpoint (`?recursive=1`). Private repos require `gh auth login` — a clear error is returned if the CLI is unavailable or unauthenticated.
 
-**Prompt-filtered fetch:** after HTML extraction, content is filtered to paragraphs relevant to the active query before the token budget is applied. The query defaults to the user's most recent prompt; override it per call via the `query` parameter. If the query is empty or consists entirely of stopwords, the full content is returned unfiltered.
+**Prompt-filtered fetch:** after HTML extraction, content is filtered to paragraphs relevant to the active query before the token budget is applied only when `mode: "summary"` falls back to verbatim because no cheap model is available. The query defaults to the user's most recent prompt; override it per call via the `query` parameter. If the query is empty or consists entirely of stopwords, the full content is returned unfiltered.
+
+#### Fidelity modes
+
+- `mode: "verbatim"` — always return extracted content verbatim; bypasses cheap-model summarisation and prompt filtering.
+- `mode: "summary"` — prefer cheap-model summarisation; if no cheap model is available or summarisation fails, fall back to extracted content.
+- `mode: "auto"` — default. Returns verbatim content for conservative docs/reference/code URL matches, otherwise prefers summary mode.
+
+Built-in `auto` verbatim matches:
+
+- **Hosts:** `pi.dev`, `github.com`, `raw.githubusercontent.com`, `gist.github.com`, `gitlab.com`, `bitbucket.org`, `codeberg.org`, `sr.ht`, `sourceforge.net`, `dev.azure.com`
+- **Subdomains:** `docs`, `api`, `reference`, `developer`, `developers`, `learn`
+- **Path prefixes:** `/docs/`, `/reference/`, `/api/`, `/sdk/`, `/manual/`, `/raw/`
+
+Use `forceVerbatimContentFetch` in config to add more `host`, `subdomain`, or `pathPrefix` rules.
 
 The expanded result view (Ctrl+O) shows `via: html | text | github-api | github-clone | browser-html` to indicate which extraction path was taken. When a browser fetch was attempted but fell back to static extraction, the label shows `via: html (browser attempted, fell back)`.
 
@@ -144,7 +165,7 @@ Token counting uses a `chars / 4` approximation to avoid pulling a tokeniser dep
 
 #### Content summarisation
 
-When `fetch_content` is called, web-tools will attempt to summarise the extracted page content using a cheap/fast model before returning it to the main agent. This reduces token usage and focuses the result on the active query.
+When `fetch_content` is in `mode: "summary"`, or `mode: "auto"` without a verbatim URL-rule match, web-tools will attempt to summarise the extracted page content using a cheap/fast model before returning it to the main agent. This reduces token usage and focuses the result on the active query.
 
 **Auto-detection:** on first use per session, the extension probes a priority list of cheap models (GitHub Copilot GPT-5 Mini → Anthropic Haiku → GitHub Copilot Haiku → GitHub Copilot GPT-5.4 Mini → Google Gemini Flash Lite → OpenAI GPT-4.1 Nano → OpenAI GPT-4o-mini → OpenAI GPT-5 Mini → DeepSeek Chat). The first one with valid auth configured in Pi is used for the rest of the session.
 

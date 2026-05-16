@@ -174,3 +174,44 @@ test("loadConfig ignores jsRendering when it is not a boolean", () => {
     cleanup();
   }
 });
+
+test("loadConfig extracts forceVerbatimContentFetch rules from valid config", () => {
+  const { path, cleanup } = tempConfigFile(
+    JSON.stringify({
+      forceVerbatimContentFetch: [
+        { host: "Pi.Dev" },
+        { subdomain: " docs " },
+        { pathPrefix: "/docs/" },
+      ],
+    }),
+  );
+  try {
+    const { config } = loadConfig(path);
+    assert.deepEqual(config.forceVerbatimContentFetch, [
+      { host: "pi.dev" },
+      { subdomain: "docs" },
+      { pathPrefix: "/docs/" },
+    ]);
+  } finally {
+    cleanup();
+  }
+});
+
+test("loadConfig ignores invalid forceVerbatimContentFetch entries", () => {
+  const { path, cleanup } = tempConfigFile(
+    JSON.stringify({
+      forceVerbatimContentFetch: [
+        null,
+        { host: "" },
+        { subdomain: 42 },
+        { pathPrefix: "/manual/" },
+      ],
+    }),
+  );
+  try {
+    const { config } = loadConfig(path);
+    assert.deepEqual(config.forceVerbatimContentFetch, [{ pathPrefix: "/manual/" }]);
+  } finally {
+    cleanup();
+  }
+});

@@ -11,7 +11,12 @@
  *     result or from a URL the user typed explicitly in the same turn).
  *
  * Configuration (optional): ~/.pi/agent/web-tools.json
- *   { searxngUrl?: string, defaultMaxTokens?: number, providers?: string[] }
+ *   {
+ *     searxngUrl?: string,
+ *     defaultMaxTokens?: number,
+ *     providers?: string[],
+ *     forceVerbatimContentFetch?: Array<{ host?: string; subdomain?: string; pathPrefix?: string }>
+ *   }
  *
  * Lifecycle hooks:
  *   - session_start (fresh reasons): clears the allow-list
@@ -34,6 +39,12 @@ import { truncateBody } from "./rendering.js";
 import { type ProviderAttempt, type SearchResult, search } from "./search-providers.js";
 import { addUrls, addUrlsFromText, clear, getAllowed, isAllowed } from "./url-allowlist.js";
 import { type ResolvedModel, resolveCheapModel, summarizeContent } from "./cheap-model.js";
+import {
+  chooseFetchContentOutput,
+  resolveFetchContentMode,
+  type AppliedFetchContentMode,
+  type FetchContentMode,
+} from "./fetch-content-mode.ts";
 
 const FETCH_CONCURRENCY_LIMITER = new ConcurrencyLimiter(3);
 
@@ -52,6 +63,9 @@ interface FetchContentDetails {
   content: string;
   contentTokensApprox: number;
   truncated: boolean;
+  requestedMode: FetchContentMode;
+  responseMode: AppliedFetchContentMode;
+  modeReason: string;
   queryFilter: string | null;
   queryFilterSource?: "explicit" | "prompt";
   statusCode?: number;
@@ -93,7 +107,28 @@ const FetchContentParams = Type.Object({
         "Relevance filter — only paragraphs matching this query are returned; defaults to the current session prompt",
     }),
   ),
+  mode: Type.Optional(
+    Type.Union([
+      Type.Literal("auto"),
+      Type.Literal("verbatim"),
+      Type.Literal("summary"),
+    ], {
+      description:
+        "Content fidelity mode: auto uses conservative URL rules, verbatim bypasses summaries, summary prefers cheap-model summarisation",
+    }),
+  ),
 });
+
+function describeCheapModelUsage(
+  responseMode: AppliedFetchContentMode,
+  resolvedModel: ResolvedModel | null,
+  summaryText: string | null,
+): string {
+  if (responseMode === "verbatim") return "n/a - verbatim mode";
+  if (resolvedModel === null) return "n/a - failed to resolve cheap model";
+  if (summaryText !== null) return `${resolvedModel.provider}/${resolvedModel.id} (active)`;
+  return `${resolvedModel.provider}/${resolvedModel.id} (failed)`;
+}
 
 function formatSearchResults(
   query: string,
@@ -284,7 +319,7 @@ export default function (pi: ExtensionAPI) {
       "Fetch the content of a URL and return it.",
       "Preferred way to retrieve web pages — use this instead of curl or bash for any URL fetch.",
       "Only URLs from a prior web_search result or URLs the user typed explicitly are permitted.",
-      "Returns the raw response body.",
+      "Returns verbatim extracted content or a cheap-model summary depending on mode and URL.",
     ].join(" "),
     parameters: FetchContentParams,
 
@@ -307,15 +342,26 @@ export default function (pi: ExtensionAPI) {
       }
 
       const maxTokens = params.maxTokens ?? config.defaultMaxTokens ?? DEFAULT_MAX_TOKENS;
+      const requestedMode = params.mode ?? "auto";
+      const modeDecision = resolveFetchContentMode(
+        params.url,
+        requestedMode,
+        config.forceVerbatimContentFetch ?? [],
+      );
       const queryFilterSource: "explicit" | "prompt" = params.query != null ? "explicit" : "prompt";
       const effectiveQuery = params.query ?? lastAgentPrompt;
+      const detailQuery = modeDecision.effectiveMode === "summary" ? effectiveQuery || null : null;
 
-      // Resolve cheap model before extracting so we can skip the prompt filter
-      // when a cheap model is available — it does its own relevance filtering,
-      // and pre-filtering strips context the cheap model needs to summarise well.
-      if (resolvedCheapModel === undefined) {
-        resolvedCheapModel = await resolveCheapModel(ctx.modelRegistry, config);
+      let summaryModel: ResolvedModel | null = null;
+      if (modeDecision.effectiveMode === "summary") {
+        if (resolvedCheapModel === undefined) {
+          resolvedCheapModel = await resolveCheapModel(ctx.modelRegistry, config);
+        }
+        summaryModel = resolvedCheapModel;
       }
+
+      const extractionQuery =
+        modeDecision.effectiveMode === "summary" && summaryModel === null ? effectiveQuery : undefined;
 
       let extracted;
       let browserAttempted = false;
@@ -327,12 +373,7 @@ export default function (pi: ExtensionAPI) {
           );
         } else {
           const staticResult = await FETCH_CONCURRENCY_LIMITER.run(() =>
-            extractContent(
-              params.url,
-              maxTokens,
-              signal ?? undefined,
-              resolvedCheapModel !== null ? undefined : effectiveQuery,
-            ),
+            extractContent(params.url, maxTokens, signal ?? undefined, extractionQuery),
           );
           if (
             jsRenderingEnabled &&
@@ -341,12 +382,7 @@ export default function (pi: ExtensionAPI) {
           ) {
             browserAttempted = true;
             extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
-              fetchWithBrowser(
-                params.url,
-                maxTokens,
-                signal ?? undefined,
-                resolvedCheapModel !== null ? undefined : effectiveQuery,
-              ),
+              fetchWithBrowser(params.url, maxTokens, signal ?? undefined, extractionQuery),
             );
           } else {
             extracted = staticResult;
@@ -382,53 +418,60 @@ export default function (pi: ExtensionAPI) {
             content: "",
             contentTokensApprox: 0,
             truncated: false,
-            queryFilter: effectiveQuery || null,
-            queryFilterSource,
+            requestedMode,
+            responseMode: modeDecision.effectiveMode,
+            modeReason: modeDecision.reason,
+            queryFilter: detailQuery,
+            queryFilterSource: detailQuery !== null ? queryFilterSource : undefined,
             statusCode: extracted.statusCode,
             source: extracted.source,
             browserFallback:
               browserAttempted && extracted.source !== "browser-html" ? true : undefined,
             model,
-            cheapModel: "n/a",
+            cheapModel: describeCheapModelUsage(modeDecision.effectiveMode, summaryModel, null),
           } satisfies FetchContentDetails,
         };
       }
 
       const summaryText =
-        resolvedCheapModel !== null
+        modeDecision.effectiveMode === "summary" && summaryModel !== null
           ? await summarizeContent(
-              resolvedCheapModel,
+              summaryModel,
               extracted.content,
               effectiveQuery,
               signal ?? undefined,
             )
           : null;
 
-      const truncationNote = extracted.truncated
-        ? `\n\n[Content truncated to ~${maxTokens} tokens]`
-        : "";
-      const agentContent = summaryText ?? extracted.content + truncationNote;
+      const selectedOutput = chooseFetchContentOutput(
+        modeDecision,
+        extracted,
+        summaryText,
+        maxTokens,
+      );
       return {
-        content: [{ type: "text", text: agentContent }],
+        content: [{ type: "text", text: selectedOutput.agentContent }],
         details: {
           url: extracted.url,
           title: extracted.title,
-          content: summaryText ?? extracted.content,
-          contentTokensApprox: extracted.contentTokensApprox,
+          content: selectedOutput.detailsContent,
+          contentTokensApprox: Math.round(selectedOutput.detailsContent.length / 4),
           truncated: extracted.truncated,
-          queryFilter: effectiveQuery || null,
-          queryFilterSource,
+          requestedMode,
+          responseMode: selectedOutput.returnedMode,
+          modeReason: modeDecision.reason,
+          queryFilter: detailQuery,
+          queryFilterSource: detailQuery !== null ? queryFilterSource : undefined,
           statusCode: extracted.statusCode,
           source: extracted.source,
           browserFallback:
             browserAttempted && extracted.source !== "browser-html" ? true : undefined,
           model,
-          cheapModel:
-            resolvedCheapModel === null
-              ? "n/a - failed to resolve cheap model"
-              : summaryText !== null
-                ? `${resolvedCheapModel.provider}/${resolvedCheapModel.id} (active)`
-                : `${resolvedCheapModel.provider}/${resolvedCheapModel.id} (failed)`,
+          cheapModel: describeCheapModelUsage(
+            selectedOutput.returnedMode,
+            summaryModel,
+            summaryText,
+          ),
         } satisfies FetchContentDetails,
       };
     },
@@ -470,8 +513,9 @@ export default function (pi: ExtensionAPI) {
           );
         }
         const truncNote = truncated ? " (truncated)" : "";
+        const modeNote = details?.responseMode === "summary" ? " (summary)" : "";
         return new Text(
-          theme.fg("toolOutput", `~${tokenCount} tokens returned${truncNote}`) +
+          theme.fg("toolOutput", `~${tokenCount} tokens returned${truncNote}${modeNote}`) +
             theme.fg("muted", " (Ctrl+O to expand)"),
           0,
           0,
@@ -493,6 +537,14 @@ export default function (pi: ExtensionAPI) {
         ? `${details.source} (browser attempted, fell back)`
         : details.source;
       container.addChild(new Text(theme.fg("dim", "via: ") + theme.fg("dim", viaLabel), 0, 0));
+      container.addChild(
+        new Text(
+          theme.fg("dim", `mode: requested ${details.requestedMode}, returned ${details.responseMode}`),
+          0,
+          0,
+        ),
+      );
+      container.addChild(new Text(theme.fg("dim", `mode reason: ${details.modeReason}`), 0, 0));
       if (details.queryFilter) {
         const filterValue =
           details.queryFilterSource === "prompt"

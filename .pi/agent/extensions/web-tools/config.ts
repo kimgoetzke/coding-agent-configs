@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import {
+  parseForceVerbatimContentFetchRules,
+  type ForceVerbatimContentFetchRule,
+} from "./fetch-content-mode.ts";
+
 export type Provider = "duckduckgo" | "bing" | "searxng" | "wikipedia";
 
 export interface WebSearchConfig {
@@ -10,6 +15,7 @@ export interface WebSearchConfig {
   providers?: Provider[];
   cheapModels?: string[];
   jsRendering?: boolean;
+  forceVerbatimContentFetch?: ForceVerbatimContentFetchRule[];
 }
 
 const VALID_PROVIDERS = new Set<string>(["duckduckgo", "bing", "searxng", "wikipedia"]);
@@ -50,6 +56,13 @@ export function loadConfig(configPath?: string): { config: WebSearchConfig; warn
   }
 
   if (typeof obj.jsRendering === "boolean") config.jsRendering = obj.jsRendering;
+
+  const forceVerbatimContentFetch = parseForceVerbatimContentFetchRules(
+    obj.forceVerbatimContentFetch,
+  );
+  if (forceVerbatimContentFetch !== undefined) {
+    config.forceVerbatimContentFetch = forceVerbatimContentFetch;
+  }
 
   return { config };
 }
