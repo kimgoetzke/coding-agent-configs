@@ -1,13 +1,14 @@
 import { access, readFile, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
+import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
 const ACTIVE_MODE_STATUS_KEY = "active-mode";
 const ACTIVE_MODE_WIDGET_KEY = "active-mode";
 const ACTIVE_MODE_CUSTOM_TYPE = "active-mode-reminder";
-const ACTIVE_MODE_RELATIVE_PATH = [".ai", ".active-mode"];
+const ACTIVE_MODE_RELATIVE_PATH = [".ai", ".active-mode"] as const;
 const FRESH_SESSION_REASONS = new Set(["startup", "new", "resume", "fork"]);
 
-async function exists(path) {
+async function exists(path: string): Promise<boolean> {
   try {
     await access(path);
     return true;
@@ -16,7 +17,7 @@ async function exists(path) {
   }
 }
 
-async function findActiveModeFile(startDir) {
+async function findActiveModeFile(startDir: string): Promise<string | undefined> {
   let currentDir = resolve(startDir);
 
   while (true) {
@@ -33,8 +34,8 @@ async function findActiveModeFile(startDir) {
   }
 }
 
-function parseActiveMode(content) {
-  const fields = {};
+function parseActiveMode(content: string): Record<string, string> {
+  const fields: Record<string, string> = {};
 
   for (const line of content.split(/\r?\n/)) {
     const match = line.match(/^([^:]+):\s*(.*)$/);
@@ -47,46 +48,57 @@ function parseActiveMode(content) {
   return fields;
 }
 
-function isPending(value) {
+function isPending(value?: string): boolean {
   return !value || value === "(pending)" || value === "(awaiting input)";
 }
 
-function summarisePath(path) {
-  const trimmed = path.replace(/\/+$/, "");
+function summarisePath(path: string): string {
+  const trimmed = path.replace(/\/+/g, "/").replace(/\/+$/, "");
   return basename(trimmed) || trimmed;
 }
 
-function summariseTarget(state) {
+type ActiveModeState = {
+  path: string;
+  root: string;
+  mode: string;
+  folder?: string;
+  topic?: string;
+  document?: string;
+  started?: string;
+  fields: Record<string, string>;
+};
+
+function summariseTarget(state: ActiveModeState): string {
   if (state.mode === "planning") {
     if (isPending(state.folder)) {
       return "pending";
     }
-    return summarisePath(state.folder);
+    return summarisePath(state.folder || "");
   }
 
   if (state.mode === "research") {
     if (!isPending(state.document)) {
-      return summarisePath(state.document);
+      return summarisePath(state.document || "");
     }
     if (!isPending(state.topic)) {
-      return state.topic;
+      return state.topic || "";
     }
     return "pending";
   }
 
   if (!isPending(state.document)) {
-    return summarisePath(state.document);
+    return summarisePath(state.document || "");
   }
   if (!isPending(state.folder)) {
-    return summarisePath(state.folder);
+    return summarisePath(state.folder || "");
   }
   if (!isPending(state.topic)) {
-    return state.topic;
+    return state.topic || "";
   }
   return "active";
 }
 
-async function loadActiveMode(startDir) {
+async function loadActiveMode(startDir: string): Promise<ActiveModeState | undefined> {
   const path = await findActiveModeFile(startDir);
   if (!path) {
     return undefined;
@@ -107,14 +119,14 @@ async function loadActiveMode(startDir) {
   };
 }
 
-function colourise(theme, token, text) {
+function colourise(theme: { fg?: (token: string, text: string) => string } | undefined, token: string, text: string): string {
   if (typeof theme?.fg === "function") {
     return theme.fg(token, text);
   }
   return text;
 }
 
-function statusBadgeToken(mode) {
+function statusBadgeToken(mode: string): string {
   if (mode === "planning") {
     return "warning";
   }
@@ -124,7 +136,7 @@ function statusBadgeToken(mode) {
   return "accent";
 }
 
-function buildStatusValue(state, theme) {
+function buildStatusValue(state: ActiveModeState | undefined, theme: { fg?: (token: string, text: string) => string } | undefined): string | undefined {
   if (!state) {
     return undefined;
   }
@@ -137,7 +149,7 @@ function buildStatusValue(state, theme) {
   return `${colourise(theme, statusBadgeToken(state.mode), "●")}${colourise(theme, "dim", ` ${summary}`)}`;
 }
 
-function buildWidgetValue(state) {
+function buildWidgetValue(state: ActiveModeState | undefined): string[] | undefined {
   if (!state) {
     return undefined;
   }
@@ -157,7 +169,7 @@ function buildWidgetValue(state) {
   return lines;
 }
 
-function buildPlanningReminder(state) {
+function buildPlanningReminder(state: ActiveModeState): string {
   if (isPending(state.folder)) {
     return [
       "[Active planning mode]",
@@ -173,7 +185,7 @@ function buildPlanningReminder(state) {
   ].join("\n");
 }
 
-function buildResearchReminder(state) {
+function buildResearchReminder(state: ActiveModeState): string {
   if (isPending(state.document)) {
     const topic = isPending(state.topic) ? "the active research topic" : state.topic;
     return [
@@ -190,7 +202,7 @@ function buildResearchReminder(state) {
   ].join("\n");
 }
 
-function buildGenericReminder(state) {
+function buildGenericReminder(state: ActiveModeState): string {
   return [
     `[Active ${state.mode} mode]`,
     "Keep the mode artefacts on disk up to date when new findings change them.",
@@ -198,7 +210,7 @@ function buildGenericReminder(state) {
   ].join("\n");
 }
 
-function buildReminder(state) {
+function buildReminder(state: ActiveModeState): string {
   if (state.mode === "planning") {
     return buildPlanningReminder(state);
   }
@@ -208,7 +220,7 @@ function buildReminder(state) {
   return buildGenericReminder(state);
 }
 
-function buildPlanningSystemPrompt(state) {
+function buildPlanningSystemPrompt(state: ActiveModeState): string {
   const lines = [
     "Active planning mode is enabled.",
     isPending(state.folder) ? "Plan folder: pending" : `Plan folder: ${state.folder}`,
@@ -221,7 +233,7 @@ function buildPlanningSystemPrompt(state) {
   return lines.join("\n");
 }
 
-function buildResearchSystemPrompt(state) {
+function buildResearchSystemPrompt(state: ActiveModeState): string {
   const lines = [
     "Active research mode is enabled.",
     !isPending(state.topic) ? `Topic: ${state.topic}` : undefined,
@@ -229,12 +241,12 @@ function buildResearchSystemPrompt(state) {
     "Keep the research document up to date when findings materially change it.",
     "Do not update it for no reason.",
     "Say whether you updated it or no update was needed.",
-  ].filter(Boolean);
+  ].filter(Boolean as unknown as (v: string) => v);
 
   return lines.join("\n");
 }
 
-function buildGenericSystemPrompt(state) {
+function buildGenericSystemPrompt(state: ActiveModeState): string {
   const lines = [
     `Active ${state.mode} mode is enabled.`,
     !isPending(state.topic) ? `Topic: ${state.topic}` : undefined,
@@ -243,12 +255,12 @@ function buildGenericSystemPrompt(state) {
     "Keep the mode artefacts on disk up to date when findings materially change them.",
     "Do not update them for no reason.",
     "Say whether you updated them or no update was needed.",
-  ].filter(Boolean);
+  ].filter(Boolean as unknown as (v: string) => v);
 
   return lines.join("\n");
 }
 
-function buildSystemPrompt(state) {
+function buildSystemPrompt(state: ActiveModeState): string {
   if (state.mode === "planning") {
     return buildPlanningSystemPrompt(state);
   }
@@ -258,7 +270,7 @@ function buildSystemPrompt(state) {
   return buildGenericSystemPrompt(state);
 }
 
-function buildInjectedMessage(state) {
+function buildInjectedMessage(state: ActiveModeState) {
   return {
     role: "custom",
     customType: ACTIVE_MODE_CUSTOM_TYPE,
@@ -268,7 +280,7 @@ function buildInjectedMessage(state) {
   };
 }
 
-async function applyUiState(ctx, state) {
+async function applyUiState(ctx: any, state: ActiveModeState | undefined) {
   if (!ctx.hasUI) {
     return;
   }
@@ -277,14 +289,14 @@ async function applyUiState(ctx, state) {
   ctx.ui.setWidget(ACTIVE_MODE_WIDGET_KEY, buildWidgetValue(state));
 }
 
-async function refreshUiState(ctx) {
+async function refreshUiState(ctx: any) {
   const state = await loadActiveMode(ctx.cwd);
   await applyUiState(ctx, state);
   return state;
 }
 
-export default function activeModeExtension(pi) {
-  pi.on("session_start", async (event, ctx) => {
+export default function activeModeExtension(pi: ExtensionAPI) {
+  pi.on("session_start", async (event: any, ctx: any) => {
     if (FRESH_SESSION_REASONS.has(event.reason)) {
       const state = await loadActiveMode(ctx.cwd);
       if (state) {
@@ -301,7 +313,7 @@ export default function activeModeExtension(pi) {
     return undefined;
   });
 
-  pi.on("before_agent_start", async (event, ctx) => {
+  pi.on("before_agent_start", async (event: any, ctx: any) => {
     const state = await refreshUiState(ctx);
     if (!state) {
       return undefined;
@@ -312,31 +324,31 @@ export default function activeModeExtension(pi) {
     };
   });
 
-  pi.on("context", async (event, ctx) => {
+  pi.on("context", async (event: any, ctx: any) => {
     const state = await loadActiveMode(ctx.cwd);
     if (!state) {
       return undefined;
     }
 
     const messages = event.messages.filter(
-      (message) => !(message.role === "custom" && message.customType === ACTIVE_MODE_CUSTOM_TYPE),
+      (message: any) => !(message.role === "custom" && message.customType === ACTIVE_MODE_CUSTOM_TYPE),
     );
     messages.push(buildInjectedMessage(state));
 
     return { messages };
   });
 
-  pi.on("tool_result", async (_event, ctx) => {
+  pi.on("tool_result", async (_event: any, ctx: any) => {
     await refreshUiState(ctx);
     return undefined;
   });
 
-  pi.on("agent_end", async (_event, ctx) => {
+  pi.on("agent_end", async (_event: any, ctx: any) => {
     await refreshUiState(ctx);
     return undefined;
   });
 
-  pi.on("session_shutdown", async (_event, ctx) => {
+  pi.on("session_shutdown", async (_event: any, ctx: any) => {
     await applyUiState(ctx, undefined);
     return undefined;
   });

@@ -4,10 +4,10 @@
   "type": "module",
   "pi": {
     "extensions": [
-      "./active-mode.js"
+      "./active-mode.ts"
     ]
   },
   "scripts": {
-    "test": "node --test *.test.js"
+    "test": "node --experimental-strip-types --test --test-force-exit *.test.ts"
   }
 }

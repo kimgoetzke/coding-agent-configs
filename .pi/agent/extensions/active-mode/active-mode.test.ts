@@ -5,31 +5,31 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
-import activeModeExtension from "./active-mode.js";
+import activeModeExtension from "./active-mode.ts";
 
-function createUi(theme = undefined) {
+function createUi(theme: any = undefined) {
   return {
     theme,
-    notifications: [],
-    statuses: [],
-    widgets: [],
-    notify(message, level = "info") {
+    notifications: [] as any[],
+    statuses: [] as any[],
+    widgets: [] as any[],
+    notify(message: string, level = "info") {
       this.notifications.push({ message, level });
     },
-    setStatus(key, value) {
+    setStatus(key: string, value: any) {
       this.statuses.push({ key, value });
     },
-    setWidget(key, value) {
+    setWidget(key: string, value: any) {
       this.widgets.push({ key, value });
     },
   };
 }
 
 function createPi() {
-  const handlers = new Map();
+  const handlers = new Map<string, (event: any, ctx: any) => any>();
   return {
     handlers,
-    on(event, handler) {
+    on(event: string, handler: (event: any, ctx: any) => any) {
       handlers.set(event, handler);
     },
   };
@@ -46,7 +46,7 @@ test("session_start clears stale mode files for fresh sessions", async () => {
   const flagFile = join(cwd, ".ai", ".active-mode");
   const ui = createUi();
   const pi = createPi();
-  activeModeExtension(pi);
+  activeModeExtension(pi as any);
 
   await writeFile(flagFile, "mode: planning\nfolder: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
 
@@ -67,7 +67,7 @@ test("session_start keeps the flag on reload and publishes active mode status", 
   const flagFile = join(cwd, ".ai", ".active-mode");
   const ui = createUi();
   const pi = createPi();
-  activeModeExtension(pi);
+  activeModeExtension(pi as any);
 
   await writeFile(flagFile, "mode: research\ntopic: auth flow\ndocument: /tmp/auth-flow.md\nstarted: 2026-05-03 10:00\n", "utf8");
 
@@ -93,12 +93,12 @@ test("session_start renders a tiny status badge when theme helpers are available
   const cwd = await createProject();
   const flagFile = join(cwd, ".ai", ".active-mode");
   const ui = createUi({
-    fg(token, text) {
+    fg(token: string, text: string) {
       return `<${token}>${text}</${token}>`;
     },
   });
   const pi = createPi();
-  activeModeExtension(pi);
+  activeModeExtension(pi as any);
 
   await writeFile(flagFile, "mode: planning\nfolder: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
 
@@ -115,7 +115,7 @@ test("context injects a planning reminder before each model call", async () => {
   const cwd = await createProject();
   const flagFile = join(cwd, ".ai", ".active-mode");
   const pi = createPi();
-  activeModeExtension(pi);
+  activeModeExtension(pi as any);
 
   await writeFile(flagFile, "mode: planning\nfolder: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
 
@@ -133,7 +133,7 @@ test("before_agent_start appends research-mode instructions to the system prompt
   const cwd = await createProject();
   const flagFile = join(cwd, ".ai", ".active-mode");
   const pi = createPi();
-  activeModeExtension(pi);
+  activeModeExtension(pi as any);
 
   await writeFile(flagFile, "mode: research\ntopic: auth flow\ndocument: /tmp/auth-flow.md\nstarted: 2026-05-03 10:00\n", "utf8");
 
