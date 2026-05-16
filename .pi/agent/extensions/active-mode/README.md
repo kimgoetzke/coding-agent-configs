@@ -7,8 +7,18 @@ Pi extension that improves working with `*-mode` skills by giving `/.ai/.active-
 - Clears stale `.ai/.active-mode` flag files on fresh session start
 - Skips cleanup on `/reload`
 - Injects the relevant mode reminders from reading the `/.ai/.active-mode` flag file before each LLM call via Pi lifecycle events
-- Adds a tiny coloured status badge plus a widget while a mode is active
+- Adds a tiny coloured status badge while a mode is active
 - Works with the shared flag used by `planning-mode`, `research-mode`, and other `*-mode` skills
+
+Example with pending research mode:
+```
+────────────────────────────────────────────────────────────────────────────────────────────────
+
+────────────────────────────────────────────────────────────────────────────────────────────────
+~/projects/coding-agent-configs  main
+↑137k ↓8.6k R2.0M $0.000 (sub) 18.7%/400k                                      sonnet-4-6 • high
+● research · pending
+```
 
 ## Why this exists
 
@@ -18,7 +28,7 @@ Claude Code and Copilot use `PostToolUse` and `SessionStart` hooks for these rem
 
 - Claude/Copilot `SessionStart` → Pi `session_start`
 - Claude/Copilot `PostToolUse` → Pi `context` plus `before_agent_start`
-- Visible mode banner → Pi `ctx.ui.setStatus()` and `ctx.ui.setWidget()`
+- Visible mode banner → Pi `ctx.ui.setStatus()`
 
 ## Notes
 

@@ -62,7 +62,7 @@ test("session_start clears stale mode files for fresh sessions", async () => {
   rmSync(cwd, { recursive: true, force: true });
 });
 
-test("session_start keeps the flag on reload and publishes active mode status", async () => {
+test("session_start keeps the flag on reload, publishes active mode status, and clears the widget", async () => {
   const cwd = await createProject();
   const flagFile = join(cwd, ".ai", ".active-mode");
   const ui = createUi();
@@ -80,11 +80,7 @@ test("session_start keeps the flag on reload and publishes active mode status", 
   });
   assert.deepEqual(ui.widgets.at(-1), {
     key: "active-mode",
-    value: [
-      "Mode: research",
-      "Topic: auth flow",
-      "Document: /tmp/auth-flow.md",
-    ],
+    value: undefined,
   });
   rmSync(cwd, { recursive: true, force: true });
 });

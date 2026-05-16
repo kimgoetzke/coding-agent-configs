@@ -149,26 +149,6 @@ function buildStatusValue(state: ActiveModeState | undefined, theme: { fg?: (tok
   return `${colourise(theme, statusBadgeToken(state.mode), "●")}${colourise(theme, "dim", ` ${summary}`)}`;
 }
 
-function buildWidgetValue(state: ActiveModeState | undefined): string[] | undefined {
-  if (!state) {
-    return undefined;
-  }
-
-  const lines = [`Mode: ${state.mode}`];
-
-  if (!isPending(state.topic)) {
-    lines.push(`Topic: ${state.topic}`);
-  }
-  if (!isPending(state.folder)) {
-    lines.push(`Folder: ${state.folder}`);
-  }
-  if (!isPending(state.document)) {
-    lines.push(`Document: ${state.document}`);
-  }
-
-  return lines;
-}
-
 function buildPlanningReminder(state: ActiveModeState): string {
   if (isPending(state.folder)) {
     return [
@@ -286,7 +266,7 @@ async function applyUiState(ctx: any, state: ActiveModeState | undefined) {
   }
 
   ctx.ui.setStatus(ACTIVE_MODE_STATUS_KEY, buildStatusValue(state, ctx.ui.theme));
-  ctx.ui.setWidget(ACTIVE_MODE_WIDGET_KEY, buildWidgetValue(state));
+  ctx.ui.setWidget(ACTIVE_MODE_WIDGET_KEY, undefined);
 }
 
 async function refreshUiState(ctx: any) {

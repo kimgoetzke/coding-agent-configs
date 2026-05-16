@@ -334,7 +334,7 @@ This repository's Pi starter config includes the `active-mode` extension under `
 
 - fresh-session cleanup via `session_start`
 - per-turn / post-tool-style reminders via `before_agent_start` and `context`
-- visible mode state via `ctx.ui.setStatus()` and `ctx.ui.setWidget()`
+- visible mode state via `ctx.ui.setStatus()`
 
 If that extension is installed, planning mode gets equivalent reminder and stale-flag cleanup behaviour automatically. If it is not installed, use manual document updates.
 
