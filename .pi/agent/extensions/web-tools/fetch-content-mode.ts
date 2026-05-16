@@ -152,6 +152,22 @@ export function resolveFetchContentMode(
   return { requestedMode, effectiveMode: "summary", reason: "auto fallback to summary" };
 }
 
+export function resolveFetchContentMaxTokens(
+  requestedMaxTokens: number | undefined,
+  configuredDefaultMaxTokens: number | undefined,
+  effectiveMode: AppliedFetchContentMode,
+  defaultMaxTokens: number,
+  maxTokensCap: number,
+): number {
+  if (requestedMaxTokens !== undefined) return Math.min(requestedMaxTokens, maxTokensCap);
+
+  const baseDefaultMaxTokens = configuredDefaultMaxTokens ?? defaultMaxTokens;
+  const modeAdjustedMaxTokens =
+    effectiveMode === "verbatim" ? baseDefaultMaxTokens * 2 : baseDefaultMaxTokens;
+
+  return Math.min(modeAdjustedMaxTokens, maxTokensCap);
+}
+
 export function chooseFetchContentOutput(
   decision: FetchContentModeDecision,
   extracted: ExtractedContentShape,

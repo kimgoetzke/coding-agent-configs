@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   chooseFetchContentOutput,
+  resolveFetchContentMaxTokens,
   resolveFetchContentMode,
   type ForceVerbatimContentFetchRule,
 } from "./fetch-content-mode.ts";
@@ -83,4 +84,24 @@ test("chooseFetchContentOutput falls back to verbatim content when summary mode 
   assert.equal(output.agentContent, "Verbatim page text");
   assert.equal(output.detailsContent, "Verbatim page text");
   assert.equal(output.returnedMode, "verbatim");
+});
+
+test("resolveFetchContentMaxTokens doubles the default budget for verbatim mode", () => {
+  assert.equal(resolveFetchContentMaxTokens(undefined, undefined, "verbatim", 8000, 16000), 16000);
+});
+
+test("resolveFetchContentMaxTokens keeps the default budget for summary mode", () => {
+  assert.equal(resolveFetchContentMaxTokens(undefined, undefined, "summary", 8000, 16000), 8000);
+});
+
+test("resolveFetchContentMaxTokens doubles configured defaults for verbatim mode up to the cap", () => {
+  assert.equal(resolveFetchContentMaxTokens(undefined, 10000, "verbatim", 8000, 16000), 16000);
+});
+
+test("resolveFetchContentMaxTokens preserves explicit maxTokens overrides", () => {
+  assert.equal(resolveFetchContentMaxTokens(6000, 8000, "verbatim", 8000, 16000), 6000);
+});
+
+test("resolveFetchContentMaxTokens clamps explicit maxTokens overrides at the cap", () => {
+  assert.equal(resolveFetchContentMaxTokens(20000, 8000, "verbatim", 8000, 16000), 16000);
 });

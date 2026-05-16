@@ -106,7 +106,7 @@ Fetches a URL and returns clean, token-efficient content.
 | Parameter   | Type   | Required | Default                | Description                                                                                              |
 | ----------- | ------ | -------- | ---------------------- | -------------------------------------------------------------------------------------------------------- |
 | `url`       | string | yes      | —                      | URL to fetch; must be on the allow-list (see below)                                                      |
-| `maxTokens` | number | no       | 8,000                  | Token budget for the returned content (max 16,000)                                                       |
+| `maxTokens` | number | no       | mode-dependent         | Token budget for the returned content (cap 16,000)                                                       |
 | `query`     | string | no       | current session prompt | Relevance filter — only paragraphs matching this query are returned; omit to use the auto-derived prompt |
 | `mode`      | string | no       | `auto`                 | Fidelity mode: `auto`, `verbatim`, or `summary`                                                          |
 
@@ -159,7 +159,7 @@ The allow-list is cleared at the start of each fresh Pi session (`startup`, `new
 
 #### Token budget
 
-The default budget is **8,000 tokens (~32,000 characters)** per page. Truncation occurs at the nearest paragraph boundary; a tail marker is appended: `…[truncated: N more tokens approx]`. Override per call via the `maxTokens` parameter (agent-configurable up to 16,000).
+When `maxTokens` is omitted, summary-mode fetches use `defaultMaxTokens` from config (default **8,000 tokens / ~32,000 characters**). Verbatim fetches use **2×** that default, capped at **16,000 tokens**. Truncation occurs at the nearest paragraph boundary; a tail marker is appended: `…[truncated: N more tokens approx]`. Override per call via the `maxTokens` parameter (hard cap 16,000).
 
 Token counting uses a `chars / 4` approximation to avoid pulling a tokeniser dependency. Actual token counts may differ by ±20%.
 

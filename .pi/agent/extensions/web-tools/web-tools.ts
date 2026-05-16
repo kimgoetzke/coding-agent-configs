@@ -33,7 +33,12 @@ import { Type } from "@sinclair/typebox";
 import { closeBrowserSession, fetchWithBrowser, prewarmBrowserSession } from "./browser-fetcher.js";
 import { ConcurrencyLimiter } from "./concurrency.js";
 import { loadConfig } from "./config.js";
-import { DEFAULT_MAX_TOKENS, extractContent, isLikelyJSRendered } from "./content-extractor.js";
+import {
+  DEFAULT_MAX_TOKENS,
+  MAX_TOKENS_CAP,
+  extractContent,
+  isLikelyJSRendered,
+} from "./content-extractor.js";
 import { clearCloneCache, fetchGitHubContent, parseGitHubUrl } from "./github-router.js";
 import { truncateBody } from "./rendering.js";
 import { type ProviderAttempt, type SearchResult, search } from "./search-providers.js";
@@ -41,6 +46,7 @@ import { addUrls, addUrlsFromText, clear, getAllowed, isAllowed } from "./url-al
 import { type ResolvedModel, resolveCheapModel, summarizeContent } from "./cheap-model.js";
 import {
   chooseFetchContentOutput,
+  resolveFetchContentMaxTokens,
   resolveFetchContentMode,
   type AppliedFetchContentMode,
   type FetchContentMode,
@@ -99,7 +105,7 @@ const WebSearchParams = Type.Object({
 const FetchContentParams = Type.Object({
   url: Type.String({ description: "URL to fetch" }),
   maxTokens: Type.Optional(
-    Type.Number({ description: "Maximum tokens to return (reserved for Phase 5)" }),
+    Type.Number({ description: "Maximum tokens to return; omitted uses a mode-dependent default (cap 16k)" }),
   ),
   query: Type.Optional(
     Type.String({
@@ -341,12 +347,18 @@ export default function (pi: ExtensionAPI) {
         };
       }
 
-      const maxTokens = params.maxTokens ?? config.defaultMaxTokens ?? DEFAULT_MAX_TOKENS;
       const requestedMode = params.mode ?? "auto";
       const modeDecision = resolveFetchContentMode(
         params.url,
         requestedMode,
         config.forceVerbatimContentFetch ?? [],
+      );
+      const maxTokens = resolveFetchContentMaxTokens(
+        params.maxTokens,
+        config.defaultMaxTokens,
+        modeDecision.effectiveMode,
+        DEFAULT_MAX_TOKENS,
+        MAX_TOKENS_CAP,
       );
       const queryFilterSource: "explicit" | "prompt" = params.query != null ? "explicit" : "prompt";
       const effectiveQuery = params.query ?? lastAgentPrompt;

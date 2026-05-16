@@ -14,7 +14,7 @@ import { parseHTML } from "linkedom";
 import { applyPromptFilter } from "./prompt-filter.ts";
 
 export const DEFAULT_MAX_TOKENS = 8_000;
-const MAX_TOKENS_CAP = 16_000;
+export const MAX_TOKENS_CAP = 16_000;
 
 const RAW_BYTE_LIMIT = 256 * 1024;
 
