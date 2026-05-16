@@ -1,6 +1,5 @@
 import { access, readdir } from "node:fs/promises";
 import { join } from "node:path";
-import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 
@@ -37,7 +36,7 @@ const LEFT_TEXT_WIDTH = 20;
 // 1 (leading space) + 8 (logo) + 2 (gap) + 20 (text) + 1 (trailing space) = 32
 const LEFT_COL_INNER_WIDTH = 1 + LOGO_PLAIN_WIDTH + LOGO_GAP_WIDTH + LEFT_TEXT_WIDTH + 1;
 
-// 4 logo rows + 1 row for Pi version below the logo (aligns with 5 right-column rows)
+// 4 logo rows + 1 blank spacing row (aligns with 5 right-column rows)
 const CONTENT_ROW_COUNT = 5;
 const EMPTY_LOGO_ROW = " ".repeat(LOGO_PLAIN_WIDTH);
 const TICK = "✓";
@@ -63,7 +62,6 @@ export function renderHero(
   provider: string,
   counts: LoadedCounts,
   theme: ThemeLike,
-  version?: string,
 ): string[] {
   // Right col inner = width minus: 2 outer borders + left col + 1 divider
   const rightColInner = width - 2 - LEFT_COL_INNER_WIDTH - 1;
@@ -75,15 +73,13 @@ export function renderHero(
 
   const border = (text: string) => fg(theme, "borderAccent", text);
 
-  // Left column (CONTENT_ROW_COUNT rows); row 4 shows Pi version below logo
-  const versionLabel = version ? `pi ${version}` : "";
-  const leftTextPlain = ["Welcome!", model, provider, "", versionLabel];
+  const leftTextPlain = ["Welcome!", model, provider, "", ""];
   const leftTextColoured = [
     fg(theme, "mdCode", bold(theme, "Welcome!")),
     fg(theme, "warning", model),
     fg(theme, "dim", provider),
     "",
-    fg(theme, "dim", versionLabel),
+    "",
   ];
 
   // Right column: "Loaded" heading + one count per row, each prefixed with ✓
@@ -132,19 +128,6 @@ export function renderHero(
   lines.push(border(`╰${leftDashes}┴${rightDashes}╯`));
 
   return lines;
-}
-
-// Reads the version from the @mariozechner/pi-coding-agent package.json that
-// is already loaded into the running Pi process — no shell exec needed.
-export function discoverPiVersion(): string | undefined {
-  try {
-    const require = createRequire(import.meta.url);
-    const pkg = require("@mariozechner/pi-coding-agent/package.json") as { version?: unknown };
-    const version = pkg?.version;
-    return typeof version === "string" && version ? `v${version}` : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -229,7 +212,6 @@ export default function welcomeHeroExtension(pi: ExtensionAPI) {
 
     dismissed = false;
 
-    const version = discoverPiVersion();
     const skillCount = pi.getCommands().filter((c: any) => c.source === "skill").length;
     const counts = await discoverLoadedCounts(ctx.cwd, skillCount);
     const model: string = ctx.model?.id ?? "unknown";
@@ -239,7 +221,7 @@ export default function welcomeHeroExtension(pi: ExtensionAPI) {
       WIDGET_KEY,
       (_tui: any, theme: any) => ({
         render(width: number): string[] {
-          return renderHero(width, model, provider, counts, theme, version);
+          return renderHero(width, model, provider, counts, theme);
         },
         invalidate() {},
       }),

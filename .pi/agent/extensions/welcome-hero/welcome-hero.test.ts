@@ -7,7 +7,6 @@ import { tmpdir } from "node:os";
 
 import {
   renderHero,
-  discoverPiVersion,
   countExistingFiles,
   countExtensionsInDir,
   countMarkdownFiles,
@@ -172,16 +171,6 @@ test("renderHero shows tick even when counts are zero", () => {
   assert.ok(joined.includes("✓ 0 prompts"));
 });
 
-test("renderHero shows Pi version in last content row when provided", () => {
-  const joined = renderHero(120, "m", "p", EMPTY_COUNTS, {}, "v0.73.0").join("\n");
-  assert.ok(joined.includes("pi v0.73.0"), `expected version in:\n${joined}`);
-});
-
-test("renderHero omits version row text when version is undefined", () => {
-  const joined = renderHero(120, "m", "p", EMPTY_COUNTS, {}, undefined).join("\n");
-  assert.ok(!joined.includes("pi v"), `unexpected version text in:\n${joined}`);
-});
-
 // ─── renderHero — theming ────────────────────────────────────────────────────
 
 test("renderHero applies borderAccent token to borders", () => {
@@ -213,17 +202,6 @@ test("renderHero works without theme (no ANSI codes)", () => {
   const lines = renderHero(80, "model", "provider", COUNTS, {});
   assert.equal(lines.length, 9);
   assert.ok(lines.join("\n").includes("Welcome!"));
-});
-
-// ─── discoverPiVersion ───────────────────────────────────────────────────────
-
-test("discoverPiVersion returns undefined or a valid vX.Y.Z string", () => {
-  // Reads from @mariozechner/pi-coding-agent/package.json via createRequire.
-  // In the test environment the package is not installed, so undefined is acceptable.
-  const version = discoverPiVersion();
-  if (version !== undefined) {
-    assert.match(version, /^v\d+\.\d+\.\d+$/, `unexpected version format: ${version}`);
-  }
 });
 
 // ─── countExistingFiles ──────────────────────────────────────────────────────
