@@ -6,3 +6,5 @@
 .pi/agent/extensions/pi-mcp-adapter/*
 .pi/agent/extensions/usage-statistics/*
 tmp/*
+AGENTS.md
+CLAUDE.md
