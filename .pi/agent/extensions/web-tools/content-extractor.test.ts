@@ -178,6 +178,34 @@ test("extractContent returns plain-text body verbatim for non-HTML responses", a
   }
 });
 
+test("extractContent includes statusCode 200 for successful responses", async () => {
+  const html = `<!DOCTYPE html><html><body><article><p>${"x".repeat(600)}</p></article></body></html>`;
+  const { url, close } = await startServer((_req, res) => {
+    res.writeHead(200, { "Content-Type": "text/html" });
+    res.end(html);
+  });
+  try {
+    const result = await extractContent(url, 8_000);
+    assert.equal(result.statusCode, 200);
+  } finally {
+    close();
+  }
+});
+
+test("extractContent includes statusCode for non-2xx responses", async () => {
+  const html = `<!DOCTYPE html><html><body><p>Access denied</p></body></html>`;
+  const { url, close } = await startServer((_req, res) => {
+    res.writeHead(403, { "Content-Type": "text/html" });
+    res.end(html);
+  });
+  try {
+    const result = await extractContent(url, 8_000);
+    assert.equal(result.statusCode, 403);
+  } finally {
+    close();
+  }
+});
+
 test("extractContent aborts when the server is slow and signal times out", async () => {
   const { url, close } = await startServer((_req, _res) => {
     // Never respond — hold the connection open.

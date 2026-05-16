@@ -26,6 +26,7 @@ export interface ExtractionResult {
   content: string;
   contentTokensApprox: number;
   truncated: boolean;
+  statusCode?: number;
   source: "html" | "text" | "github-api" | "github-clone" | "browser-html";
   rawHtml?: string;
 }
@@ -227,6 +228,7 @@ export async function extractContent(
     content,
     contentTokensApprox: Math.round(content.length / 4),
     truncated,
+    statusCode: response.status,
     source: isHtml ? "html" : "text",
     ...(isHtml ? { rawHtml: rawBody } : {}),
   };

@@ -53,6 +53,8 @@ interface FetchContentDetails {
   contentTokensApprox: number;
   truncated: boolean;
   queryFilter: string | null;
+  queryFilterSource?: "explicit" | "prompt";
+  statusCode?: number;
   source: "html" | "text" | "github-api" | "github-clone" | "browser-html";
   browserFallback?: boolean;
   model: string;
@@ -60,6 +62,18 @@ interface FetchContentDetails {
 }
 
 const FRESH_SESSION_REASONS = new Set(["startup", "new", "resume", "fork"]);
+
+/**
+ * Strips ANSI escape codes and the "Sent · <timestamp>" suffix appended by the
+ * message-timestamps extension so that the cleaned text can be used as a
+ * relevance filter without leaking UI chrome into the query.
+ */
+function cleanPromptForQuery(raw: string): string {
+  // eslint-disable-next-line no-control-regex
+  const deAnsi = raw.replace(/\x1b\[[\d;]*[a-zA-Z]/g, "");
+  const sentMarkerIdx = deAnsi.lastIndexOf("\n\nSent ·");
+  return (sentMarkerIdx >= 0 ? deAnsi.slice(0, sentMarkerIdx) : deAnsi).trim();
+}
 
 const WebSearchParams = Type.Object({
   query: Type.String({ description: "Search query" }),
@@ -135,7 +149,7 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("before_agent_start", (event: { prompt: string }) => {
     addUrlsFromText(event.prompt);
-    lastAgentPrompt = event.prompt;
+    lastAgentPrompt = cleanPromptForQuery(event.prompt);
     if (jsRenderingEnabled) prewarmBrowserSession();
     return undefined;
   });
@@ -293,6 +307,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       const maxTokens = params.maxTokens ?? config.defaultMaxTokens ?? DEFAULT_MAX_TOKENS;
+      const queryFilterSource: "explicit" | "prompt" = params.query != null ? "explicit" : "prompt";
       const effectiveQuery = params.query ?? lastAgentPrompt;
 
       // Resolve cheap model before extracting so we can skip the prompt filter
@@ -319,7 +334,11 @@ export default function (pi: ExtensionAPI) {
               resolvedCheapModel !== null ? undefined : effectiveQuery,
             ),
           );
-          if (jsRenderingEnabled && isLikelyJSRendered(staticResult.content, staticResult.rawHtml ?? "")) {
+          if (
+            jsRenderingEnabled &&
+            (staticResult.statusCode === undefined || staticResult.statusCode < 400) &&
+            isLikelyJSRendered(staticResult.content, staticResult.rawHtml ?? "")
+          ) {
             browserAttempted = true;
             extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
               fetchWithBrowser(
@@ -340,6 +359,41 @@ export default function (pi: ExtensionAPI) {
           isError: true,
         };
       }
+      const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "unknown";
+      if (extracted.statusCode !== undefined && extracted.statusCode >= 400) {
+        const titleInfo = extracted.title ? ` Title: "${extracted.title}".` : "";
+        const hint =
+          extracted.statusCode === 403
+            ? " Access was forbidden — the page may be paywalled, geo-restricted, or block automated access."
+            : extracted.statusCode >= 500
+            ? " The server returned an error."
+            : "";
+        return {
+          content: [
+            {
+              type: "text",
+              text: `fetch_content: HTTP ${extracted.statusCode}.${titleInfo}${hint}`,
+            },
+          ],
+          isError: true,
+          details: {
+            url: extracted.url,
+            title: extracted.title,
+            content: "",
+            contentTokensApprox: 0,
+            truncated: false,
+            queryFilter: effectiveQuery || null,
+            queryFilterSource,
+            statusCode: extracted.statusCode,
+            source: extracted.source,
+            browserFallback:
+              browserAttempted && extracted.source !== "browser-html" ? true : undefined,
+            model,
+            cheapModel: "n/a",
+          } satisfies FetchContentDetails,
+        };
+      }
+
       const summaryText =
         resolvedCheapModel !== null
           ? await summarizeContent(
@@ -350,7 +404,6 @@ export default function (pi: ExtensionAPI) {
             )
           : null;
 
-      const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "unknown";
       const truncationNote = extracted.truncated
         ? `\n\n[Content truncated to ~${maxTokens} tokens]`
         : "";
@@ -364,6 +417,8 @@ export default function (pi: ExtensionAPI) {
           contentTokensApprox: extracted.contentTokensApprox,
           truncated: extracted.truncated,
           queryFilter: effectiveQuery || null,
+          queryFilterSource,
+          statusCode: extracted.statusCode,
           source: extracted.source,
           browserFallback:
             browserAttempted && extracted.source !== "browser-html" ? true : undefined,
@@ -392,15 +447,28 @@ export default function (pi: ExtensionAPI) {
       const text = result.content[0];
       const body = text?.type === "text" ? text.text : "(no output)";
 
-      if (isError) {
-        return new Text(theme.fg("error", body), 0, 0);
-      }
-
       const details = result.details as FetchContentDetails | undefined;
+      const httpError =
+        details !== undefined &&
+        details.statusCode !== undefined &&
+        details.statusCode >= 400;
       const tokenCount = details?.contentTokensApprox ?? Math.round(body.length / 4);
       const truncated = details?.truncated ?? false;
 
+      // Genuine errors without details (URL blocked, network failure, etc.)
+      if (isError && !details) {
+        return new Text(theme.fg("error", body), 0, 0);
+      }
+
       if (!expanded || !details) {
+        if (httpError) {
+          return new Text(
+            theme.fg("error", `HTTP ${details!.statusCode} error`) +
+              theme.fg("muted", " (Ctrl+O to expand)"),
+            0,
+            0,
+          );
+        }
         const truncNote = truncated ? " (truncated)" : "";
         return new Text(
           theme.fg("toolOutput", `~${tokenCount} tokens returned${truncNote}`) +
@@ -426,26 +494,34 @@ export default function (pi: ExtensionAPI) {
         : details.source;
       container.addChild(new Text(theme.fg("dim", "via: ") + theme.fg("dim", viaLabel), 0, 0));
       if (details.queryFilter) {
+        const filterValue =
+          details.queryFilterSource === "prompt"
+            ? "(full user prompt)"
+            : details.queryFilter.length > 80
+            ? details.queryFilter.slice(0, 80)
+            : details.queryFilter;
         container.addChild(
-          new Text(
-            theme.fg("dim", "filter: ") +
-              theme.fg(
-                "dim",
-                details.queryFilter.length > 80
-                  ? `${details.queryFilter.slice(0, 80)}…`
-                  : details.queryFilter,
-              ),
-            0,
-            0,
-          ),
+          new Text(theme.fg("dim", "filter: ") + theme.fg("dim", filterValue), 0, 0),
         );
       }
       container.addChild(new Text(theme.fg("dim", `model: ${details.model}`), 0, 0));
       container.addChild(new Text(theme.fg("dim", `summarised by: ${details.cheapModel}`), 0, 0));
       container.addChild(new Spacer(1));
-      container.addChild(
-        new Text(theme.fg("toolOutput", truncateBody(details.content, 2000)), 0, 0),
-      );
+      if (httpError) {
+        const hint =
+          details.statusCode === 403
+            ? "access forbidden — paywalled, geo-restricted, or blocks automated access"
+            : details.statusCode! >= 500
+            ? "server error"
+            : "request failed";
+        container.addChild(
+          new Text(theme.fg("error", `HTTP ${details.statusCode} — ${hint}`), 0, 0),
+        );
+      } else {
+        container.addChild(
+          new Text(theme.fg("toolOutput", truncateBody(details.content, 2000)), 0, 0),
+        );
+      }
       container.addChild(new Spacer(1));
       const footer = `~${details.contentTokensApprox} tokens${details.truncated ? " (truncated)" : ""}`;
       container.addChild(new Text(theme.fg("dim", footer), 0, 0));
