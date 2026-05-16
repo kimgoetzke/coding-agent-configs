@@ -1,0 +1,13 @@
+{
+  "name": "pi-welcome-hero-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./welcome-hero.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test --test-force-exit *.test.ts"
+  }
+}
