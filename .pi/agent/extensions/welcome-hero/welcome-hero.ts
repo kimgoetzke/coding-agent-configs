@@ -1,9 +1,8 @@
 import { access, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { createRequire } from "node:module";
+import { homedir } from "node:os";
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-
-const HOME = process.env.HOME ?? "";
 
 type ThemeLike = {
   fg?: (token: string, text: string) => string;
@@ -189,24 +188,25 @@ export async function countMarkdownFiles(dirs: string[]): Promise<number> {
 }
 
 export async function discoverLoadedCounts(cwd: string, skillCount: number): Promise<LoadedCounts> {
+  const home = homedir();
   const contextFilePaths = [
-    join(HOME, ".pi", "agent", "AGENTS.md"),
-    join(HOME, ".claude", "AGENTS.md"),
+    join(home, ".pi", "agent", "AGENTS.md"),
+    join(home, ".claude", "AGENTS.md"),
     join(cwd, "AGENTS.md"),
     join(cwd, ".pi", "AGENTS.md"),
     join(cwd, ".claude", "AGENTS.md"),
   ];
 
   const commandDirs = [
-    join(HOME, ".pi", "agent", "commands"),
-    join(HOME, ".claude", "commands"),
+    join(home, ".pi", "agent", "commands"),
+    join(home, ".claude", "commands"),
     join(cwd, ".pi", "commands"),
     join(cwd, ".claude", "commands"),
   ];
 
   const [contextFiles, globalExtensions, projectExtensions, promptTemplates] = await Promise.all([
     countExistingFiles(contextFilePaths),
-    countExtensionsInDir(join(HOME, ".pi", "agent", "extensions")),
+    countExtensionsInDir(join(home, ".pi", "agent", "extensions")),
     countExtensionsInDir(join(cwd, ".pi", "extensions")),
     countMarkdownFiles(commandDirs),
   ]);
@@ -237,9 +237,9 @@ export default function welcomeHeroExtension(pi: ExtensionAPI) {
 
     ctx.ui.setWidget(
       WIDGET_KEY,
-      (_tui: any, _theme: any) => ({
+      (_tui: any, theme: any) => ({
         render(width: number): string[] {
-          return renderHero(width, model, provider, counts, ctx.ui.theme, version);
+          return renderHero(width, model, provider, counts, theme, version);
         },
         invalidate() {},
       }),
