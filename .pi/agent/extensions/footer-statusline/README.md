@@ -26,7 +26,7 @@ After: each segment uses a semantic theme colour
 | `R` cache-read tokens  | `muted`                                              |
 | `W` cache-write tokens | `muted`                                              |
 | cost (`$0.000`)        | `muted`                                              |
-| context `%/window`     | `success` when unknown, `muted` < 40 %, `warning` 40–59 %, `error` ≥ 60 % |
+| context `%/window`     | `text` when unknown, `success` < 30 %, `warning` 30–49 %, `error` ≥ 50 %; shown on the right before the model |
 | model name             | `warning`                                            |
 | `•` separator          | `muted`                                              |
 | thinking level value   | `thinkingOff` / `thinkingLow` / `thinkingMedium` / … |
@@ -44,7 +44,7 @@ Unchanged from built-in: shows statuses from other extensions, sorted alphabetic
 
 ## Theme tokens used
 
-`accent`, `syntaxNumber`, `syntaxVariable`, `success`, `warning`, `error`, `muted`, `thinkingOff`, `thinkingMinimal`, `thinkingLow`, `thinkingMedium`, `thinkingHigh`, `thinkingXhigh`
+`accent`, `text`, `syntaxNumber`, `syntaxVariable`, `success`, `warning`, `error`, `muted`, `thinkingOff`, `thinkingMinimal`, `thinkingLow`, `thinkingMedium`, `thinkingHigh`, `thinkingXhigh`
 
 ## Files
 

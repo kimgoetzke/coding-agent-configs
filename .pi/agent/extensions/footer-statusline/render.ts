@@ -42,16 +42,16 @@ export function truncatePlain(text: string, maxWidth: number): string {
 
 /**
  * Select the theme colour token for the context-usage percentage.
- *  null     → success
- *   < 40 %  → muted
- *  40–59 %  → warning
- *  ≥ 60 %   → error
+ *  null     → text
+ *   < 30 %  → success
+ *  30–49 %  → warning
+ *  ≥ 50 %   → error
  */
 export function selectContextToken(percent: number | null): string {
-  if (percent == null) return "success";
-  if (percent >= 60) return "error";
-  if (percent >= 40) return "warning";
-  return "muted";
+  if (percent == null) return "text";
+  if (percent >= 50) return "error";
+  if (percent >= 30) return "warning";
+  return "success";
 }
 
 const THINKING_TOKENS: Record<string, string> = {
@@ -117,7 +117,9 @@ export function renderPwdLine(
     return fg(theme, "syntaxVariable", ` ${BRANCH_ICON} ${branchTruncated}`);
   }
 
-  return fg(theme, "accent", pwdTruncated) + fg(theme, "syntaxVariable", ` ${BRANCH_ICON} ${branch}`);
+  return (
+    fg(theme, "accent", pwdTruncated) + fg(theme, "syntaxVariable", ` ${BRANCH_ICON} ${branch}`)
+  );
 }
 
 /**
@@ -146,38 +148,48 @@ export function renderStatsLine(width: number, theme: FooterThemeLike, stats: Fo
   if (totals.cost > 0 || usingSubscription) {
     segments.push([`$${totals.cost.toFixed(3)}${usingSubscription ? " (sub)" : ""}`, "muted"]);
   }
-  segments.push([contextDisplay, contextToken]);
 
   const leftPlain = segments.map(([text]) => text).join(" ");
   const leftWidth = leftPlain.length;
 
-  let thinkingMuted = "";
   let thinkingValue = "";
   let thinkingColourToken = "muted";
   if (reasoning) {
     const level = thinkingLevel ?? "off";
     thinkingColourToken = thinkingToken(level);
-    thinkingMuted = " • ";
     thinkingValue = level === "off" ? "thinking off" : level;
   }
-  const thinkingSuffix = `${thinkingMuted}${thinkingValue}`;
+
+  const contextSeparator = " • ";
+  const thinkingSuffix = thinkingValue ? `${contextSeparator}${thinkingValue}` : "";
 
   let providerPrefix = "";
   if (multiProvider && provider) {
     const candidate = `(${provider}) `;
-    if (leftWidth + 2 + candidate.length + modelId.length + thinkingSuffix.length <= width) {
+    if (
+      leftWidth +
+        2 +
+        contextDisplay.length +
+        contextSeparator.length +
+        candidate.length +
+        modelId.length +
+        thinkingSuffix.length <=
+      width
+    ) {
       providerPrefix = candidate;
     }
   }
 
-  const rightPlain = `${providerPrefix}${modelId}${thinkingSuffix}`;
+  const rightPlain = `${contextDisplay}${contextSeparator}${providerPrefix}${modelId}${thinkingSuffix}`;
   const rightWidth = rightPlain.length;
 
   const leftColoured = segments.map(([text, token]) => fg(theme, token, text)).join(" ");
   const rightColoured =
+    fg(theme, contextToken, contextDisplay) +
+    fg(theme, "muted", contextSeparator) +
     (providerPrefix ? fg(theme, "muted", providerPrefix) : "") +
     fg(theme, "warning", modelId) +
-    (thinkingMuted ? fg(theme, "muted", thinkingMuted) : "") +
+    (thinkingValue ? fg(theme, "muted", contextSeparator) : "") +
     (thinkingValue ? fg(theme, thinkingColourToken, thinkingValue) : "");
 
   const minPadding = 2;

@@ -5,6 +5,7 @@ import {
   buildContextDisplay,
   formatTokens,
   renderSeparatorLine,
+  renderStatsLine,
   selectContextToken,
   thinkingToken,
   truncatePlain,
@@ -66,22 +67,22 @@ test("truncatePlain: appends ellipsis when truncating", () => {
 // selectContextToken
 // ---------------------------------------------------------------------------
 
-test("selectContextToken: null (unknown) → success", () => {
-  assert.equal(selectContextToken(null), "success");
+test("selectContextToken: null (unknown) → text", () => {
+  assert.equal(selectContextToken(null), "text");
 });
 
-test("selectContextToken: below 40 % → muted", () => {
-  assert.equal(selectContextToken(0), "muted");
-  assert.equal(selectContextToken(39.9), "muted");
+test("selectContextToken: below 30 % → success", () => {
+  assert.equal(selectContextToken(0), "success");
+  assert.equal(selectContextToken(29.9), "success");
 });
 
-test("selectContextToken: 40–59.9 % → warning", () => {
-  assert.equal(selectContextToken(40), "warning");
-  assert.equal(selectContextToken(59.9), "warning");
+test("selectContextToken: 30–49.9 % → warning", () => {
+  assert.equal(selectContextToken(30), "warning");
+  assert.equal(selectContextToken(49.9), "warning");
 });
 
-test("selectContextToken: 60 % and above → error", () => {
-  assert.equal(selectContextToken(60), "error");
+test("selectContextToken: 50 % and above → error", () => {
+  assert.equal(selectContextToken(50), "error");
   assert.equal(selectContextToken(100), "error");
 });
 
@@ -130,5 +131,72 @@ test("renderSeparatorLine uses the accent token", () => {
       fg: (token, text) => `[${token}]${text}`,
     }),
     "[accent]────",
+  );
+});
+
+// ---------------------------------------------------------------------------
+// renderStatsLine
+// ---------------------------------------------------------------------------
+
+test("renderStatsLine puts context first on the right before the model", () => {
+  const line = renderStatsLine(
+    80,
+    {
+      fg: (token, text) => `[${token}]${text}`,
+    },
+    {
+      totals: {
+        input: 1200,
+        output: 345,
+        cacheRead: 0,
+        cacheWrite: 0,
+        cost: 0,
+      },
+      contextWindow: 400000,
+      contextPercent: 0,
+      modelId: "claude-sonnet-4",
+      multiProvider: false,
+      usingSubscription: false,
+      reasoning: true,
+      thinkingLevel: "high",
+    },
+  );
+
+  assert.ok(line.startsWith("[syntaxNumber]↑1.2k [success]↓345"));
+  assert.ok(
+    line.endsWith("[success]0.0%/400k[muted] • [warning]claude-sonnet-4[muted] • [thinkingHigh]high"),
+  );
+  assert.equal(
+    line.includes("[warning]claude-sonnet-4[muted] • [thinkingHigh]high[muted]0.0%/400k"),
+    false,
+  );
+});
+
+test("renderStatsLine keeps context ahead of provider-qualified model names", () => {
+  const line = renderStatsLine(
+    80,
+    {
+      fg: (token, text) => `[${token}]${text}`,
+    },
+    {
+      totals: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        cost: 0,
+      },
+      contextWindow: 400000,
+      contextPercent: 12.3,
+      modelId: "claude-sonnet-4",
+      provider: "anthropic",
+      multiProvider: true,
+      usingSubscription: false,
+      reasoning: false,
+    },
+  );
+
+  assert.ok(
+    line.endsWith("[success]12.3%/400k[muted] • [muted](anthropic) [warning]claude-sonnet-4"),
   );
 });
