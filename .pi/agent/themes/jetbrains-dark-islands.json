@@ -69,12 +69,12 @@
     "syntaxOperator": "base06",
     "syntaxPunctuation": "base06",
 
-    "thinkingOff": "base0E",
+    "thinkingOff": "#4B6B8B",
     "thinkingMinimal": "#4B6B8B",
-    "thinkingLow": "#4B6B8B",
-    "thinkingMedium": "base0D",
-    "thinkingHigh": "base06",
-    "thinkingXhigh": "base0A",
+    "thinkingLow": "base0D",
+    "thinkingMedium": "base06",
+    "thinkingHigh": "base0A",
+    "thinkingXhigh": "base08",
 
     "bashMode": "base0A"
   }
