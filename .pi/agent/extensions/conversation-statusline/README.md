@@ -31,14 +31,14 @@ The extension intentionally uses colours from the active Pi theme:
 
 ## Testing
 
-If `node` is available on your PATH:
+Run from the root directory with `node` on the PATH:
 
 ```bash
 node --test .pi/agent/extensions/conversation-statusline/*.test.js
 ```
 
-In Nix, you can test with:
+Run from extension directory in Nix:
 
 ```bash
-nix shell nixpkgs#nodejs -c node --test .pi/agent/extensions/conversation-statusline/*.test.js
+nix shell nixpkgs#nodejs -c node --experimental-strip-types --test *.test.ts
 ```
