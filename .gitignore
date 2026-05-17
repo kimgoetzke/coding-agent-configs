@@ -7,4 +7,5 @@
 .pi/agent/extensions/usage-statistics/*
 tmp/*
 AGENTS.md
+!.pi/agent/AGENTS.md
 CLAUDE.md
