@@ -11,31 +11,7 @@ This repository contains a collection of configuration files for coding agents. 
 
 Run one of the commands below for your coding agent. The script will ask if you want to install skills, agents, and/or config files - and even if you choose config files, it'll check before overwriting an existing file. Skills and agents with the same names will be replaced though, if you choose to install skills or agents respectively. For Pi, the script also offers the starter extensions and themes from `.pi/agent/`, because the Pi starter config in this repository depends on them.
 
-**Claude Code:**
-
-Bash:
-```bash
-curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --claude
-```
-
-PowerShell:
-```powershell
-& ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent claude
-```
-
-**GitHub Copilot:**
-
-Bash:
-```bash
-curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --copilot
-```
-
-PowerShell:
-```powershell
-& ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent copilot
-```
-
-**Pi:**
+####  Pi
 
 Bash:
 ```bash
@@ -56,11 +32,33 @@ cd ~/.pi/agent/extensions/command-policy
 npm install
 ```
 
-#### Notes
+#### Claude Code
 
-For Claude Code and GitHub Copilot, this still will not install any hooks for you though. Pick and choose from the `/hooks` directory.
+Bash:
+```bash
+curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --claude
+```
 
-Each hook contains instructions. Pi does not support hooks, it uses the starter extensions under `.pi/agent/extensions/` instead, including the bundled `active-mode` extension that provides `*-mode` lifecycle reminders and stale-flag cleanup.
+PowerShell:
+```powershell
+& ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent claude
+```
+
+This will not install any hooks for you though. Pick and choose from the `/hooks` directory. Each hook contains setup instructions.
+
+####  GitHub Copilot
+
+Bash:
+```bash
+curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --copilot
+```
+
+PowerShell:
+```powershell
+& ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent copilot
+```
+
+This will not install any hooks for you though. Pick and choose from the `/hooks` directory. Each hook contains setup instructions.
 
 ### Manual setup
 
@@ -123,14 +121,15 @@ If you use Pi, the starter extensions included in this repo are:
 
 | Extension                 | Purpose                                                                                              |
 | ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `active-mode`             | Lifecycle reminders and stale flag cleanup for `*-mode` skills                                       |
+| `active-mode`             | Support for `*-mode` skills: lifecycle behaviours and visual mode indicator                          |
 | `command-policy`          | Configurable allow/deny list for shell commands the agent may run                                    |
 | `conversation-statusline` | Shows session info in the Pi status line                                                             |
-| `footer-statusline`       | Adds a footer status line to the Pi UI                                                               |
+| `footer-statusline`       | Improves the footer status line                                                                      |
 | `message-timestamps`      | Annotates messages with timestamps                                                                   |
 | `subagent-support`        | Delegates work to isolated Pi subprocesses, each with its own context window                         |
-| `usage-statistics`        | Tracks and displays token usage across sessions                                                      |
+| `usage-statistics`        | Tracks and displays token usage across sessions, accessible via /usage                               |
 | `web-tools`               | `web_search` and `fetch_content` tools — structured, token-efficient web access, no API key required |
+| `welcome-hero`            | Themed welcome widget on startup showing the Pi logo, active model, and a summary of loaded config   |
 
 ## Attribution
 
