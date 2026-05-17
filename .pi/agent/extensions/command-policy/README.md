@@ -133,9 +133,3 @@ This means:
 - project rules can tighten behavior directly
 - weakening inherited global behavior must be explicit via `downgrade`
 - a project `confirm` rule does not silently override a matching global `block`
-
-## Migration notes
-
-- `version` remains `1`; the `downgrade` section is an additive extension to the existing schema
-- existing global-only or project-only policy files continue to work unchanged
-- if you previously relied on a project policy replacing the global policy entirely, review the merged result and add `downgrade` entries where the project needs to relax inherited global rules
