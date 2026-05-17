@@ -1,7 +1,7 @@
 const MIN_LEFT_GUTTER = 8;
 const MIN_LABEL_WIDTH = 4;
 
-function truncatePlainText(text, maxWidth) {
+function truncatePlainText(text: string, maxWidth: number): string {
   if (maxWidth <= 0) {
     return "";
   }
@@ -18,7 +18,7 @@ function truncatePlainText(text, maxWidth) {
   return `${chars.slice(0, maxWidth - 1).join("")}…`;
 }
 
-export function fitSessionLabel(sessionName, width) {
+export function fitSessionLabel(sessionName: string | undefined, width: number): string {
   const normalized = sessionName?.trim();
   if (!normalized) {
     return "";
@@ -36,7 +36,7 @@ export function fitSessionLabel(sessionName, width) {
   return ` ${fittedName} `;
 }
 
-export function buildTopBand(width, sessionName) {
+export function buildTopBand(width: number, sessionName: string | undefined): string {
   const labelWidth = width > MIN_LEFT_GUTTER + MIN_LABEL_WIDTH ? width - MIN_LEFT_GUTTER : width;
   const label = fitSessionLabel(sessionName, labelWidth);
   if (!label) {

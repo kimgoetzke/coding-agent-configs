@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildTopBand, fitSessionLabel } from "./layout.js";
+import { buildTopBand, fitSessionLabel } from "./layout.ts";
 
 test("fitSessionLabel pads a session name with spaces for display in the chrome", () => {
   assert.equal(fitSessionLabel("Roadmap", 20), " Roadmap ");
