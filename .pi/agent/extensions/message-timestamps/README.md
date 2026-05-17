@@ -17,7 +17,7 @@ Agent responses — timestamp appended after the response, including response du
 ```
 Paris is the capital of France.
 
-Received · 04 May 2026 · 14:30:45 · Took 15s
+Received · 04 May 2026 · 14:30:15 · Took 15s
 ```
 
 Both timestamps use the theme's `accent` colour.
