@@ -1,6 +1,6 @@
 # active-mode
 
-Pi extension that improves working with `*-mode` skills by giving `/.ai/.active-mode` the same lifecycle behaviour that Claude Code and Copilot get from standalone hooks. `*-mode` skills, such as `research-mode`, are skills that continually prompt the agent to keep certain files on disk up-to-date during a conversation. When a mode is active, it'll be shown to the user.
+Pi extension that improves working with `*-mode` skills by enabling lifecycle behaviours while `/.ai/.active-mode` exists. `*-mode` skills, such as `research-mode`, are skills that prompt the agent to keep certain files on disk up-to-date during a conversation. When a mode is active, it'll be shown to the user.
 
 ## What it does
 
@@ -10,7 +10,9 @@ Pi extension that improves working with `*-mode` skills by giving `/.ai/.active-
 - Adds a tiny coloured status badge while a mode is active
 - Works with the shared flag used by `planning-mode`, `research-mode`, and other `*-mode` skills
 
-Example with pending research mode:
+## Example
+
+In pending research mode:
 ```
 ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -20,24 +22,24 @@ Example with pending research mode:
 ● research · pending
 ```
 
-## Why this exists
+**Only the last row is added by this extension.** The rest is only included for reference.
 
-Claude Code and Copilot use `PostToolUse` and `SessionStart` hooks for these reminders. Pi's starter config in this repo uses extensions instead. This extension is the Pi-native equivalent.
-
-## Lifecycle mapping
-
-- Claude/Copilot `SessionStart` → Pi `session_start`
-- Claude/Copilot `PostToolUse` → Pi `context` plus `before_agent_start`
-- Visible mode banner → Pi `ctx.ui.setStatus()`
-
-## Notes
+### Notes
 
 - The extension treats `.ai/.active-mode` as the source of truth
 - Skills remain responsible for creating, updating, and deleting the flag file
 - If the extension is not installed, the skills still fall back to manual discipline
 
-## Tests
+## Testing
+
+Run from the root directory with `node` on the PATH:
 
 ```bash
-nix shell nixpkgs#nodejs --command node --test .pi/agent/extensions/active-mode/*.test.js
+node --test .pi/agent/extensions/conversation-statusline/*.test.js
+```
+
+Run from extension directory in Nix:
+
+```bash
+nix shell nixpkgs#nodejs -c node --experimental-strip-types --test *.test.ts
 ```
