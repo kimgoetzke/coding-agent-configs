@@ -4,21 +4,23 @@ Registers two LLM-callable tools — `web_search` and `fetch_content` — that g
 
 ## Installation
 
-Copy this folder into your Pi config:
+**Step 1:** Copy this folder into your Pi config:
 
 ```bash
-mkdir -p ~/.pi/agent/extensions
 cp -R .pi/agent/extensions/web-tools ~/.pi/agent/extensions/web-tools
 ```
 
-Install dependencies:
+**Step 2:** Install dependencies:
 
 ```bash
 cd ~/.pi/agent/extensions/web-tools
+npm install
+
+# If you use Nix, via a shell:
 nix shell nixpkgs#nodejs --command npm install
 ```
 
-Install the bundled Chromium browser (one-time, ~180 MB):
+**Step 3:** (Recommended) Install the bundled Chromium browser (one-time, ~180 MB):
 
 ```bash
 npx playwright install chromium
@@ -27,19 +29,17 @@ npx playwright install chromium
 nix shell nixpkgs#nodejs --command npx playwright install chromium
 ```
 
-**NixOS:** After installing, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to the nixpkgs-wrapped Chromium binary so the dynamic linker can find its shared libraries:
+Without this, you will not be able to fetch content from websites that require JS to render content.
+
+**Only on NixOS:** After installing, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to the nixpkgs-wrapped Chromium binary so the dynamic linker can find its shared libraries:
 
 ```bash
 export PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=$(nix shell nixpkgs#chromium --command which chromium)
 ```
 
-Add this to your shell profile or Pi's launch environment. Without it, the bundled headless-shell binary will fail to start on NixOS.
+Add `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to your shell profile or Pi's launch environment. Without it, the bundled headless-shell binary will fail to start on NixOS.
 
-Then reload Pi:
-
-```text
-/reload
-```
+**Step 4:** Reload Pi with `/reload`
 
 ## Optional config file
 
@@ -70,14 +70,14 @@ Create `~/.pi/agent/web-tools.json` to override defaults. Missing file or missin
 }
 ```
 
-| Field                       | Type       | Description                                                                                                                       |
-| --------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `searxngUrl`                | string     | Base URL of a SearXNG instance; enables the SearXNG provider                                                                      |
-| `defaultMaxTokens`          | number     | Default token budget for `fetch_content` (overridable per call)                                                                   |
-| `providers`                 | string[]   | Provider order override; valid values listed above                                                                                |
-| `jsRendering`               | boolean    | Enable headless Chromium JS rendering (default `true`). Set to `false` to disable — no Chromium required, static fetch only.     |
-| `cheapModels`               | string[]   | Models to use for content summarisation, format `"provider/model-id"`. Set to `[]` to disable. Omit to use the auto-detect list. |
-| `forceVerbatimContentFetch` | object[]   | Extra auto-mode rules that force verbatim output. Each rule may set `host`, `subdomain`, and/or `pathPrefix`; all defined fields must match. |
+| Field                       | Type     | Description                                                                                                                                  |
+| --------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `searxngUrl`                | string   | Base URL of a SearXNG instance; enables the SearXNG provider                                                                                 |
+| `defaultMaxTokens`          | number   | Default token budget for `fetch_content` (overridable per call)                                                                              |
+| `providers`                 | string[] | Provider order override; valid values listed above                                                                                           |
+| `jsRendering`               | boolean  | Enable headless Chromium JS rendering (default `true`). Set to `false` to disable — no Chromium required, static fetch only.                 |
+| `cheapModels`               | string[] | Models to use for content summarisation, format `"provider/model-id"`. Set to `[]` to disable. Omit to use the auto-detect list.             |
+| `forceVerbatimContentFetch` | object[] | Extra auto-mode rules that force verbatim output. Each rule may set `host`, `subdomain`, and/or `pathPrefix`; all defined fields must match. |
 
 ## Tools
 
@@ -110,6 +110,8 @@ Fetches a URL and returns clean, token-efficient content.
 | `query`     | string | no       | current session prompt | Relevance filter — only paragraphs matching this query are returned; omit to use the auto-derived prompt |
 | `mode`      | string | no       | `auto`                 | Fidelity mode: `auto`, `verbatim`, or `summary`                                                          |
 
+#### Features
+
 **HTML pages** are processed via Mozilla Readability to strip nav/ads/boilerplate, then converted to markdown (headings, paragraphs, code blocks, links preserved).
 
 **GitHub URLs** are routed to repository content instead of HTML scraping:
@@ -124,7 +126,13 @@ Root repos ≤ 350 MB are fetched via `git clone --depth 1`; larger repos use th
 
 **Prompt-filtered fetch:** after HTML extraction, content is filtered to paragraphs relevant to the active query before the token budget is applied only when `mode: "summary"` falls back to verbatim because no cheap model is available. The query defaults to the user's most recent prompt; override it per call via the `query` parameter. If the query is empty or consists entirely of stopwords, the full content is returned unfiltered.
 
-#### Fidelity modes
+**Automatic JavaScript rendering:** after static HTML extraction, if the result is thin (< 500 characters of markdown) and the raw HTML contains more than 3 `<script>` tags, `fetch_content` automatically re-fetches the page using a headless Chromium browser. The browser waits for the network to go idle (up to 15 seconds) before extracting the rendered HTML. If the browser fetch fails for any reason, the static result is returned instead. No extra parameter is needed — detection is fully automatic.
+
+**Detailed expanded result view:** Among many other things, the expanded result view (Ctrl+O) shows `via: html | text | github-api | github-clone | browser-html` to indicate which extraction path was taken. When a browser fetch was attempted but fell back to static extraction, the label shows `via: html (browser attempted, fell back)`.
+
+**Miscellaneous:** Token count is approximated as `chars / 4`. Non-HTML responses (plain text, JSON, markdown) are returned verbatim without filtering. Up to 3 fetches run concurrently; each request times out after 30 seconds.
+
+##### Fidelity modes
 
 - `mode: "verbatim"` — always return extracted content verbatim; bypasses cheap-model summarisation and prompt filtering.
 - `mode: "summary"` — prefer cheap-model summarisation; if no cheap model is available or summarisation fails, fall back to extracted content.
@@ -138,13 +146,7 @@ Built-in `auto` verbatim matches:
 
 Use `forceVerbatimContentFetch` in config to add more `host`, `subdomain`, or `pathPrefix` rules.
 
-The expanded result view (Ctrl+O) shows `via: html | text | github-api | github-clone | browser-html` to indicate which extraction path was taken. When a browser fetch was attempted but fell back to static extraction, the label shows `via: html (browser attempted, fell back)`.
-
-**Automatic JavaScript rendering:** after static HTML extraction, if the result is thin (< 500 characters of markdown) and the raw HTML contains more than 3 `<script>` tags, `fetch_content` automatically re-fetches the page using a headless Chromium browser. The browser waits for the network to go idle (up to 15 seconds) before extracting the rendered HTML. If the browser fetch fails for any reason, the static result is returned instead. No extra parameter is needed — detection is fully automatic.
-
-Token count is approximated as `chars / 4`. Non-HTML responses (plain text, JSON, markdown) are returned verbatim without filtering. Up to 3 fetches run concurrently; each request times out after 30 seconds.
-
-#### URL allow-list
+##### URL allow-list
 
 `fetch_content` enforces a session-scoped URL allow-list to prevent prompt-injection attacks where a malicious page instructs the agent to exfiltrate data via crafted URLs.
 
@@ -157,13 +159,13 @@ The allow-list is cleared at the start of each fresh Pi session (`startup`, `new
 
 **Limit:** the allow-list only enforces exact URL matching (with normalisation for trailing slashes, default ports, and fragments). It does not prevent the agent from fetching a previously allowed URL that now serves attacker-controlled content — redirect chains and link-following are not tracked.
 
-#### Token budget
+##### Token budget
 
 When `maxTokens` is omitted, summary-mode fetches use `defaultMaxTokens` from config (default **8,000 tokens / ~32,000 characters**). Verbatim fetches use **2×** that default, capped at **16,000 tokens**. Truncation occurs at the nearest paragraph boundary; a tail marker is appended: `…[truncated: N more tokens approx]`. Override per call via the `maxTokens` parameter (hard cap 16,000).
 
 Token counting uses a `chars / 4` approximation to avoid pulling a tokeniser dependency. Actual token counts may differ by ±20%.
 
-#### Content summarisation
+##### Content summarisation
 
 When `fetch_content` is in `mode: "summary"`, or `mode: "auto"` without a verbatim URL-rule match, web-tools will attempt to summarise the extracted page content using a cheap/fast model before returning it to the main agent. This reduces token usage and focuses the result on the active query.
 
@@ -185,7 +187,7 @@ When `fetch_content` is in `mode: "summary"`, or `mode: "auto"` without a verbat
 
 ## Known limitations
 
-- **Chromium binary (~180 MB):** the bundled Chromium is downloaded once via `npx playwright install chromium`. It is managed by Playwright outside `node_modules` and is not included in the extension itself.
+- **Chromium binary:** to enable optional JavaScript rendering, the bundled Chromium is downloaded once via `npx playwright install chromium`. It is managed by Playwright outside `node_modules` and is not included in the extension itself.
 - **No PDF extraction:** PDFs return binary or text content without specialised parsing.
 - **No video:** YouTube and other video URLs are not handled.
 - **GitHub clone requires `git`:** root repo fetches below the 350 MB threshold run `git clone --depth 1`, which requires `git` on `$PATH`. Repos above the threshold use the GitHub API instead.
@@ -195,10 +197,16 @@ When `fetch_content` is in `mode: "summary"`, or `mode: "auto"` without a verbat
 
 ## Testing
 
-Run from this directory:
+Run from the root directory with `node` on the PATH:
 
 ```bash
-nix shell nixpkgs#nodejs --command node --experimental-strip-types --test *.test.ts
+node --test .pi/agent/extensions/conversation-statusline/*.test.js
+```
+
+Run from extension directory in Nix:
+
+```bash
+nix shell nixpkgs#nodejs -c node --experimental-strip-types --test *.test.ts
 ```
 
 Browser integration tests (`browser-fetcher.test.ts`) require Chromium. On NixOS, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` first (see installation instructions above).
