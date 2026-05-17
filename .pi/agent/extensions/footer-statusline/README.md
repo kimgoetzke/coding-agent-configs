@@ -41,16 +41,16 @@ Pi extension that replaces the built-in footer bar with a more colourful TypeScr
 | `•` separator          | `muted`                                                                                                       |
 | thinking level value   | `thinkingOff` / `thinkingLow` / `thinkingMedium` / …                                                          |
 
-## Testing with Nix
+## Testing
 
-From the extension directory:
+Run from the root directory with `node` on the PATH:
+
+```bash
+node --test .pi/agent/extensions/conversation-statusline/*.test.js
+```
+
+Run from extension directory in Nix:
 
 ```bash
 nix shell nixpkgs#nodejs -c node --experimental-strip-types --test *.test.ts
-```
-
-Or via the package script:
-
-```bash
-nix shell nixpkgs#nodejs -c npm test
 ```
