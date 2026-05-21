@@ -106,6 +106,43 @@
   .stop { margin-top: 2rem; }
   .stop .stop-frame { color: var(--muted); margin: 0 0 .75rem; }
   .stop .stop-files { margin: 0 0 .5rem; font-size: .85rem; color: var(--muted); }
+  .diff-wrapper {
+    margin: 1rem 0;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
+  .diff-wrapper > summary {
+    padding: .5rem 1rem;
+    font-weight: 500;
+    background: var(--surface);
+    border-radius: 6px;
+    list-style: none;
+  }
+  .diff-wrapper > summary::-webkit-details-marker { display: none; }
+  .diff-wrapper > summary::before {
+    content: "▸ ";
+    display: inline-block;
+    color: var(--muted);
+    transition: transform .15s ease;
+  }
+  .diff-wrapper[open] > summary {
+    border-radius: 6px 6px 0 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .diff-wrapper[open] > summary::before { content: "▾ "; }
+  .diff-wrapper > summary .diff-stats {
+    margin-left: .5rem;
+    font-size: .8rem;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .diff-wrapper > .diff {
+    border: 0;
+    border-radius: 0 0 6px 6px;
+    margin: 0;
+  }
   .diff { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0; overflow-x: auto; margin: 1rem 0; }
   .diff .line {
     display: block;

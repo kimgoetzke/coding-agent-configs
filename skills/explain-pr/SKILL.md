@@ -30,9 +30,21 @@ Verify `gh` is available with `gh --version`. If missing, tell the user this ski
 Fetch metadata and diff:
 
 ```bash
-gh pr view {number} --json number,title,url,body,author,headRefName,baseRefName,state,additions,deletions,changedFiles,files
+gh pr view {number} --json number,title,url,body,author,headRefName,baseRefName,headRefOid,state,additions,deletions,changedFiles,files
 gh pr diff {number}
 ```
+
+**Build the permalink prefix** for later use:
+
+- Parse `{owner}/{repo}` from the PR URL (`https://github.com/{owner}/{repo}/pull/{number}`).
+- Read `{head_sha}` from `headRefOid`.
+- Permalink for any file in this PR is:
+
+  ```
+  https://github.com/{owner}/{repo}/blob/{head_sha}/{file path}
+  ```
+
+Use these permalinks **everywhere a file path is mentioned to the user** — scope listings, walkthrough plan stops, stop headings, HTML output — so the user can click straight to the pinned source.
 
 ## Step 2: Build the introduction
 
@@ -107,11 +119,11 @@ Procedure:
    >
    > **Excluded files ({count}):**
    >
-   > - `path/to/file.ext` — generated
-   > - `path/to/another.ext` — repetitive call-site update
+   > - [`path/to/file.ext`]({permalink}) — generated
+   > - [`path/to/another.ext`]({permalink}) — repetitive call-site update
    > - …
 
-   Show the **full list** of excluded files with a short reason for each. Do not truncate. Group by reason where it aids readability.
+   Show the **full list** of excluded files with a short reason for each. Wrap each path in a markdown link to its permalink. Do not truncate. Group by reason where it aids readability.
 4. Ask the user whether they are happy with this scoping. If they want any excluded file pulled back in, move it to the essence bucket. If they want a file dropped, move it out. Then proceed to Step 4.
 
 Only files in the essence bucket become stops in the walkthrough plans.
@@ -133,7 +145,7 @@ Each plan should:
 
 - Have a short name (3-5 words)
 - Have a one-line description
-- List its stops in order, each stop labelled with the file(s) it covers
+- List its stops in order, each stop labelled with the file(s) it covers (wrap each file path in a markdown link to its permalink)
 
 Present plans to the user:
 
@@ -149,9 +161,10 @@ This step runs in **interactive** mode only. In **html** mode, skip to Step 7.
 Once the user picks a plan, walk through its stops in order. For each stop:
 
 1. Print a heading: `## Stop {n}/{total}: {short stop title}`
-2. One sentence framing what this stop shows and why it comes here in the sequence.
-3. Show the **verbatim diff** for the file(s) at this stop in a fenced ```diff block. Slice it from the full diff fetched in Step 1 — split on lines matching `^diff --git a/.* b/.*` and pick the section(s) for the file(s) at this stop. Do not paraphrase the diff.
-4. Stop and present the four numbered choices below.
+2. On the next line, list the file(s) covered as markdown links to their permalinks (e.g. `Files: [`src/Foo.java`]({permalink}), [`src/Bar.java`]({permalink})`).
+3. One sentence framing what this stop shows and why it comes here in the sequence.
+4. Show the **verbatim diff** for the file(s) at this stop in a fenced ```diff block. Slice it from the full diff fetched in Step 1 — split on lines matching `^diff --git a/.* b/.*` and pick the section(s) for the file(s) at this stop. Do not paraphrase the diff.
+5. Stop and present the four numbered choices below.
 
 Choices to offer after every stop (always in this order):
 
@@ -238,7 +251,7 @@ No Mermaid or other rendered diagram formats — `<pre>` blocks render correctly
 
 If the mechanical bucket from Step 3 is empty, set `{{SCOPE_SECTION_HTML}}` to an empty string.
 
-Otherwise emit:
+Otherwise emit (wrap every `<code>{path}</code>` in an `<a href="{permalink}">…</a>`):
 
 ```html
 <section id="scope">
@@ -247,7 +260,7 @@ Otherwise emit:
   <details>
     <summary>Excluded files ({count})</summary>
     <ul>
-      <li><code>{path}</code> — {reason}</li>
+      <li><a href="{permalink}"><code>{path}</code></a> — {reason}</li>
       ...
     </ul>
   </details>
@@ -263,7 +276,7 @@ Otherwise emit:
   <ul>
     <li><strong>{plan name}</strong> — {description}
       <ol>
-        <li>{stop title} — <code>{file path}</code></li>
+        <li>{stop title} — <a href="{permalink}"><code>{file path}</code></a></li>
         ...
       </ol>
     </li>
@@ -276,16 +289,31 @@ If only one plan was designed, omit the `<details>` block and just show the chos
 
 ### Walkthrough stops
 
-One `<section class="stop">` per stop in the chosen plan:
+One `<section class="stop">` per stop in the chosen plan. Inside each stop, emit **one `<details class="diff-wrapper">` per file**, not one per stop. This gives natural visual separation between files, lets the user expand only the files they care about, and avoids confusion about where one file's diff ends and the next begins.
+
+Every `<details>` stays **closed by default** so large PRs feel less intimidating.
+
+The `<summary>` for each file shows the file as a permalink plus its additions/deletions count:
 
 ```html
 <section class="stop" id="stop-{n}">
   <h3>Stop {n}/{total}: {stop title}</h3>
   <p class="stop-frame">{one-sentence framing}</p>
-  <p class="stop-files"><code>{file path}</code>{, <code>{file path}</code>}*</p>
-  <pre class="diff"><code>{wrapped diff lines}</code></pre>
+
+  <details class="diff-wrapper">
+    <summary><a href="{permalink}"><code>{file path}</code></a> <span class="diff-stats">+{additions} −{deletions}</span></summary>
+    <pre class="diff"><code>{wrapped diff lines for this file}</code></pre>
+  </details>
+
+  <details class="diff-wrapper">
+    <summary><a href="{permalink}"><code>{file path}</code></a> <span class="diff-stats">+{additions} −{deletions}</span></summary>
+    <pre class="diff"><code>{wrapped diff lines for this file}</code></pre>
+  </details>
+  ...
 </section>
 ```
+
+Count `{additions}` and `{deletions}` **per file**: additions are lines starting with `+` (excluding `+++`), deletions are lines starting with `-` (excluding `---`), counted within that file's diff slice only.
 
 ### Diff line wrapping
 
