@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explain PR #{{NUMBER}}: {{TITLE}}</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1f2328;
+    --muted: #57606a;
+    --border: #d0d7de;
+    --surface: #f6f8fa;
+    --accent: #0969da;
+    --add-bg: #e6ffec;
+    --add-fg: #1a7f37;
+    --del-bg: #ffebe9;
+    --del-fg: #cf222e;
+    --hunk-fg: #8250df;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1117;
+      --fg: #e6edf3;
+      --muted: #8b949e;
+      --border: #30363d;
+      --surface: #161b22;
+      --accent: #2f81f7;
+      --add-bg: #1a2f23;
+      --add-fg: #56d364;
+      --del-bg: #3a1d20;
+      --del-fg: #f85149;
+      --hunk-fg: #d2a8ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); color: var(--fg); }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  article { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  header { border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; margin-bottom: 2rem; }
+  header h1 { margin: 0 0 .25rem; font-size: 1.75rem; line-height: 1.25; }
+  header .meta { margin: 0; color: var(--muted); font-size: .9rem; }
+  header .meta a { color: var(--accent); text-decoration: none; }
+  header .meta a:hover { text-decoration: underline; }
+  h2 { margin-top: 2.5rem; margin-bottom: .75rem; font-size: 1.35rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; }
+  h3 { margin-top: 1.75rem; margin-bottom: .5rem; font-size: 1.1rem; }
+  p { margin: .75rem 0; }
+  a { color: var(--accent); }
+  blockquote {
+    margin: 0 0 1rem;
+    padding: .5rem 1rem;
+    border-left: 3px solid var(--border);
+    color: var(--muted);
+    background: var(--surface);
+    border-radius: 0 6px 6px 0;
+  }
+  blockquote p:first-child { margin-top: 0; }
+  blockquote p:last-child { margin-bottom: 0; }
+  ul, ol { padding-left: 1.5rem; }
+  li { margin: .25rem 0; }
+  code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .9em;
+    background: var(--surface);
+    padding: .1em .35em;
+    border-radius: 3px;
+  }
+  pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .85rem;
+    background: var(--surface);
+    padding: 1rem;
+    border-radius: 6px;
+    overflow-x: auto;
+    line-height: 1.45;
+    margin: 1rem 0;
+  }
+  pre code { background: transparent; padding: 0; font-size: inherit; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+  th, td { border: 1px solid var(--border); padding: .4rem .75rem; text-align: left; vertical-align: top; }
+  th { background: var(--surface); font-weight: 600; }
+  details {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .5rem 1rem;
+    margin: 1rem 0;
+  }
+  details > summary { cursor: pointer; font-weight: 600; }
+  details[open] > summary { margin-bottom: .5rem; }
+  .badge {
+    display: inline-block;
+    font-size: .75rem;
+    padding: .15em .55em;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .badge.chosen { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .stop { margin-top: 2rem; }
+  .stop .stop-frame { color: var(--muted); margin: 0 0 .75rem; }
+  .stop .stop-files { margin: 0 0 .5rem; font-size: .85rem; color: var(--muted); }
+  .diff { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0; overflow-x: auto; margin: 1rem 0; }
+  .diff .line {
+    display: block;
+    padding: 0 1rem;
+    white-space: pre;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .85rem;
+    line-height: 1.5;
+  }
+  .diff .line.add { background: var(--add-bg); color: var(--add-fg); }
+  .diff .line.del { background: var(--del-bg); color: var(--del-fg); }
+  .diff .line.hunk { color: var(--hunk-fg); font-weight: 600; }
+  .diff .line.meta { color: var(--muted); }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<article>
+  <header>
+    <h1>{{TITLE}}</h1>
+    <p class="meta">
+      <a href="{{URL}}">PR #{{NUMBER}}</a> · {{AUTHOR}} ·
+      <code>{{HEAD_BRANCH}}</code> &rarr; <code>{{BASE_BRANCH}}</code>
+    </p>
+  </header>
+
+  <section id="description">
+    <h2>1. PR description &amp; goal</h2>
+    <blockquote>{{PR_BODY_HTML}}</blockquote>
+    <p><strong>Goal.</strong> {{GOAL}}</p>
+  </section>
+
+  <section id="summary">
+    <h2>2. Plain-language summary</h2>
+    {{SUMMARY_HTML}}
+  </section>
+
+  <section id="context">
+    <h2>3. Context</h2>
+    {{CONTEXT_HTML}}
+  </section>
+
+  <section id="visualisations">
+    <h2>4. Visualisations</h2>
+    {{VISUALISATIONS_HTML}}
+  </section>
+
+  {{SCOPE_SECTION_HTML}}
+
+  <section id="plans">
+    <h2>Walkthrough plans</h2>
+    {{PLANS_HTML}}
+  </section>
+
+  <section id="walk">
+    <h2>Walkthrough</h2>
+    {{WALK_HTML}}
+  </section>
+
+  <section id="recap">
+    <h2>Recap</h2>
+    {{RECAP_HTML}}
+  </section>
+
+  <footer>
+    Generated by the <code>explain-pr</code> skill on {{GENERATED_AT}}.
+  </footer>
+</article>
+</body>
+</html>
