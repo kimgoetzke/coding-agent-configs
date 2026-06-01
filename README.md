@@ -32,6 +32,11 @@ cd ~/.pi/agent/extensions/command-policy
 npm install
 ```
 
+Alternatively, you can run the following which combines all of the below (and also works when `npm` is not in PATH but Nix is available):
+```bash
+curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/update-pi.sh | bash
+```
+
 #### Claude Code
 
 Bash:
