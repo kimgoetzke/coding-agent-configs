@@ -150,6 +150,7 @@ function formatSearchResults(
     for (const [i, r] of results.entries()) {
       lines.push(`\n${i + 1}. ${r.title}`);
       lines.push(`   ${r.url}`);
+      if (r.date) lines.push(`   ${r.date}`);
       if (r.snippet) lines.push(`   ${r.snippet}`);
     }
   }
@@ -306,6 +307,7 @@ export default function (pi: ExtensionAPI) {
             theme.fg("toolOutput", `${i + 1}. ${r.title}`) +
               "\n" +
               theme.fg("accent", `   ${r.url}`) +
+              (r.date ? "\n" + theme.fg("dim", `   ${r.date}`) : "") +
               "\n" +
               theme.fg("dim", `   ${truncateBody(r.snippet, 200)}`),
             0,

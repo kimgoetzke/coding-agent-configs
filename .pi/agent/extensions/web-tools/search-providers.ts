@@ -42,6 +42,12 @@ function stripHtmlTags(html: string): string {
   return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
 }
 
+// ── DuckDuckGo date-prefix regex ─────────────────────────────────────────────
+// Matches date prefixes DDG sometimes prepends to snippet text, e.g.:
+//   "Jan 15, 2024 — ..."  |  "2024-01-15 · ..."  |  "15 Jan 2024 — ..."
+const DDG_DATE_PREFIX_REGEX =
+  /^(\w{3,9} \d{1,2},? \d{4}|\d{4}-\d{2}-\d{2}|\d{1,2} \w{3,9} \d{4})\s*[—–·\-]+\s*/;
+
 // ── DuckDuckGo HTML parser ────────────────────────────────────────────────────
 
 function extractDdgUrl(href: string): string | null {
@@ -90,11 +96,18 @@ export function parseDuckDuckGoHtml(html: string): SearchResult[] {
     snippets.push(stripHtmlTags(snippetMatch[2] ?? ""));
   }
 
-  return titleEntries.map((entry, i) => ({
-    title: entry.title,
-    url: entry.url,
-    snippet: snippets[i] ?? "",
-  }));
+  return titleEntries.map((entry, i) => {
+    const rawSnippet = snippets[i] ?? "";
+    const dateMatch = DDG_DATE_PREFIX_REGEX.exec(rawSnippet);
+    const date = dateMatch ? dateMatch[1] : undefined;
+    const snippet = dateMatch ? rawSnippet.slice(dateMatch[0].length) : rawSnippet;
+    return {
+      title: entry.title,
+      url: entry.url,
+      snippet,
+      ...(date !== undefined ? { date } : {}),
+    };
+  });
 }
 
 // ── Bing HTML parser ──────────────────────────────────────────────────────────
@@ -135,7 +148,10 @@ export function parseBingHtml(html: string): SearchResult[] {
     const snipMatch = after.match(/<p\b[^>]*class="[^"]*b_lineclamp[^"]*"[^>]*>([\s\S]*?)<\/p>/);
     const snippet = stripHtmlTags(snipMatch?.[1] ?? "");
 
-    results.push({ title, url, snippet });
+    const dateSpanMatch = after.match(/<span\b[^>]*class="[^"]*news_dt[^"]*"[^>]*>([\s\S]*?)<\/span>/);
+    const date = dateSpanMatch ? stripHtmlTags(dateSpanMatch[1] ?? "") || undefined : undefined;
+
+    results.push({ title, url, snippet, ...(date !== undefined ? { date } : {}) });
   }
   return results;
 }

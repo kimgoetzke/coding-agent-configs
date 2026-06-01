@@ -72,6 +72,22 @@ test("parseDuckDuckGoHtml returns empty array for HTML with no result__a links",
   assert.deepEqual(parseDuckDuckGoHtml("<html><body>nothing here</body></html>"), []);
 });
 
+test("parseDuckDuckGoHtml populates date and strips prefix when snippet starts with a date", () => {
+  const html = `
+    <a class="result__a" href="/l/?uddg=https%3A%2F%2Fexample.com">Title</a>
+    <a class="result__snippet">Jan 15, 2024 — Actual snippet content here.</a>
+  `;
+  const results = parseDuckDuckGoHtml(html);
+  assert.equal(results[0]?.date, "Jan 15, 2024");
+  assert.equal(results[0]?.snippet, "Actual snippet content here.");
+});
+
+test("parseDuckDuckGoHtml leaves date undefined when snippet has no date prefix", () => {
+  const results = parseDuckDuckGoHtml(DDG_HTML_FIXTURE);
+  assert.equal(results[0]?.date, undefined);
+  assert.equal(results[1]?.date, undefined);
+});
+
 // ── parseSearXNGJson ─────────────────────────────────────────────────────────
 
 const SEARXNG_FIXTURE = {
@@ -299,4 +315,43 @@ test("parseBingHtml decodes HTML-entity-encoded href (&amp;u=)", () => {
 
 test("parseBingHtml returns empty array for HTML with no Bing CK links", () => {
   assert.deepEqual(parseBingHtml("<html><body>nothing here</body></html>"), []);
+});
+
+test("parseBingHtml leaves date undefined for results with no news_dt span", () => {
+  const results = parseBingHtml(BING_HTML_FIXTURE);
+  assert.equal(results[0]?.date, undefined);
+  assert.equal(results[1]?.date, undefined);
+});
+
+// ── parseBingHtml with date fixture ──────────────────────────────────────────
+
+// "https://example.com/page1" → a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdlMQ  (same as above)
+const BING_HTML_WITH_DATE_FIXTURE = `
+<html><body>
+<ol id="b_results">
+  <li class="b_algo">
+    <h2><a class="tilk" href="https://www.bing.com/ck/a?!&&p=abc&amp;u=a1aHR0cHM6Ly9leGFtcGxlLmNvbS9wYWdlMQ&amp;ntb=1">Example Article</a></h2>
+    <div class="b_caption">
+      <span class="news_dt">Jan 15, 2024</span>
+      <p class="b_lineclamp2">Article snippet content.</p>
+    </div>
+  </li>
+  <li class="b_algo">
+    <h2><a class="tilk" href="https://www.bing.com/ck/a?!&&p=xyz&amp;u=a1aHR0cHM6Ly9vdGhlci5vcmcvYXJ0aWNsZQ&amp;ntb=1">Other Article</a></h2>
+    <div class="b_caption">
+      <p class="b_lineclamp2">Article without date span.</p>
+    </div>
+  </li>
+</ol>
+</body></html>
+`;
+
+test("parseBingHtml populates date from news_dt span when present", () => {
+  const results = parseBingHtml(BING_HTML_WITH_DATE_FIXTURE);
+  assert.equal(results[0]?.date, "Jan 15, 2024");
+});
+
+test("parseBingHtml leaves date undefined when no news_dt span in window", () => {
+  const results = parseBingHtml(BING_HTML_WITH_DATE_FIXTURE);
+  assert.equal(results[1]?.date, undefined);
 });
