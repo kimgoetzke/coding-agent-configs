@@ -65,39 +65,18 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     }),
   );
 
-  // Primary: inject timestamp at turn_end for the final turn (no tool results), while still
-  // inside the agent lifecycle. deliverAs "followUp" flushes right after the last turn,
-  // before agent_end, so the timestamp appears immediately without waiting for user input.
-  pi.on("turn_end", async (event, ctx) => {
-    if (!ctx.hasUI) return;
-    // Only the final turn: no pending tool results.
-    if (event.toolResults.length > 0) return;
-    // Only if the LLM produced a real text response.
-    const msg = event.message as any;
-    const hasText =
-      msg?.role === "assistant" &&
-      Array.isArray(msg.content) &&
-      msg.content.some((c: any) => c.type === "text" && c.text?.trim());
-    if (!hasText) return;
-
-    const receivedAt = new Date();
-    const durationSuffix = submittedAt ? ` · Took ${formatDuration(submittedAt, receivedAt)}` : "";
-    submittedAt = undefined;
-    pi.sendMessage(
-      {
-        customType: AGENT_TIMESTAMP_CUSTOM_TYPE,
-        content: `Received · ${formatTimestamp(receivedAt)}${durationSuffix}`,
-        display: true,
-      },
-      { deliverAs: "followUp" },
-    );
-  });
-
-  // Fallback: if turn_end didn't handle the timestamp (e.g. edge-case turn structure),
-  // agent_end catches it. submittedAt being still set means turn_end didn't fire.
+  // sendMessage() always creates a CustomMessageEntry that goes to LLM context.
+  // Any delivery mode that lets the current agent lifecycle consume it ("steer" or
+  // "followUp") triggers another LLM turn → infinite loop.
+  // "nextTurn" avoids the loop but is only delivered after the next user prompt.
+  //
+  // Since 0.75.4 the agent lifecycle is fully awaited before agent_end fires, so
+  // sendMessage from agent_end is always queued until the next user prompt regardless
+  // of delivery mode.  The only immediate, non-LLM display mechanism available is
+  // ctx.ui.setWidget, which renders a line above the editor right away.
+  // The registered renderer below stays for backward-compat with old stored timestamps.
   pi.on("agent_end", async (event, ctx) => {
     if (!ctx.hasUI) return undefined;
-    if (!submittedAt) return undefined; // already handled in turn_end
     const hasTextResponse = event.messages.some(
       (msg) =>
         msg.role === "assistant" &&
@@ -106,13 +85,10 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     );
     if (!hasTextResponse) return undefined;
     const receivedAt = new Date();
-    const durationSuffix = ` · Took ${formatDuration(submittedAt, receivedAt)}`;
+    const durationSuffix = submittedAt ? ` · Took ${formatDuration(submittedAt, receivedAt)}` : "";
     submittedAt = undefined;
-    pi.sendMessage({
-      customType: AGENT_TIMESTAMP_CUSTOM_TYPE,
-      content: `Received · ${formatTimestamp(receivedAt)}${durationSuffix}`,
-      display: true,
-    });
+    const content = `Received · ${formatTimestamp(receivedAt)}${durationSuffix}`;
+    ctx.ui.setWidget("received-timestamp", [ctx.ui.theme.fg("accent", ` ${content}`)]);
   });
 
   pi.on("input", async (event, ctx) => {
@@ -125,6 +101,8 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     }
 
     submittedAt = new Date();
+    // Clear the received-timestamp widget now that the user is responding.
+    ctx.ui.setWidget("received-timestamp", []);
     const timestamp = `Sent · ${formatTimestamp(submittedAt)}`;
     const styledTimestamp = ctx.hasUI ? ctx.ui.theme.fg("accent", timestamp) : timestamp;
 
