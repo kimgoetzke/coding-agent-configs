@@ -42,6 +42,33 @@ const EMPTY_LOGO_ROW = " ".repeat(LOGO_PLAIN_WIDTH);
 const TICK = "✓";
 const WIDGET_KEY = "welcome-hero";
 
+/**
+ * Truncate a string to at most `maxWidth` visible (non-ANSI) characters,
+ * preserving any ANSI escape sequences that appear before the cut point.
+ * Works without any external dependency so tests can run with plain Node.
+ */
+function ansiTruncate(str: string, maxWidth: number): string {
+  const plain = str.replace(/\x1b(?:\[[0-9;]*m|\]8;;[^\x07]*\x07)/g, "");
+  if (plain.length <= maxWidth) return str;
+  const stickyRe = /\x1b(?:\[[0-9;]*m|\]8;;[^\x07]*\x07)/y;
+  let visible = 0;
+  let i = 0;
+  let result = "";
+  while (i < str.length && visible < maxWidth) {
+    stickyRe.lastIndex = i;
+    const m = stickyRe.exec(str);
+    if (m !== null) {
+      result += m[0];
+      i += m[0].length;
+    } else {
+      result += str[i];
+      visible++;
+      i++;
+    }
+  }
+  return result;
+}
+
 function fg(theme: ThemeLike, token: string, text: string): string {
   if (typeof theme.fg === "function") {
     return theme.fg(token, text);
@@ -112,11 +139,13 @@ export function renderHero(
     const logoColoured =
       i < LOGO_LINES.length ? fg(theme, "accent", LOGO_LINES[i]) : EMPTY_LOGO_ROW;
 
-    const textPad = " ".repeat(Math.max(0, LEFT_TEXT_WIDTH - (leftTextPlain[i]?.length ?? 0)));
-    const leftContent = ` ${logoColoured}  ${leftTextColoured[i]}${textPad} `;
+    const leftTruncWidth = Math.min(leftTextPlain[i]?.length ?? 0, LEFT_TEXT_WIDTH);
+    const textPad = " ".repeat(LEFT_TEXT_WIDTH - leftTruncWidth);
+    const leftContent = ` ${logoColoured}  ${ansiTruncate(leftTextColoured[i] ?? "", LEFT_TEXT_WIDTH)}${textPad} `;
 
-    const rightPad = " ".repeat(Math.max(0, rightTextWidth - (rightRows[i]?.plain.length ?? 0)));
-    const rightContent = ` ${rightRows[i]?.coloured ?? ""}${rightPad} `;
+    const rightTruncWidth = Math.min(rightRows[i]?.plain.length ?? 0, rightTextWidth);
+    const rightPad = " ".repeat(rightTextWidth - rightTruncWidth);
+    const rightContent = ` ${ansiTruncate(rightRows[i]?.coloured ?? "", rightTextWidth)}${rightPad} `;
 
     lines.push(`${border("│")}${leftContent}${border("│")}${rightContent}${border("│")}`);
   }

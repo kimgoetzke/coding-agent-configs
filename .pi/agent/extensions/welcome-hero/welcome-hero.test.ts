@@ -204,6 +204,16 @@ test("renderHero works without theme (no ANSI codes)", () => {
   assert.ok(lines.join("\n").includes("Welcome!"));
 });
 
+test("renderHero does not exceed terminal width at narrow (53) terminal", () => {
+  // Regression: width=53 with real-world model/provider and counts caused a crash
+  // because right-column text (e.g. "✓ 2 context files") overflowed rightTextWidth
+  // without being truncated.
+  const lines = renderHero(53, "claude-sonnet-4.6", "github-copilot", COUNTS, {});
+  for (const line of lines) {
+    assert.equal(line.length, 53, `line too wide (${line.length}): "${line}"`);
+  }
+});
+
 // ─── countExistingFiles ──────────────────────────────────────────────────────
 
 test("countExistingFiles returns 0 for empty list", async () => {
