@@ -1,5 +1,5 @@
-.ai/research/*
-.ai/planning/*
+.ai/research/2026-05-04 llm-api-vs-subscription-research.md
+
 .ai/review/*
 .claude/settings.local.json
 **/node_modules/*
@@ -9,3 +9,5 @@ tmp/*
 AGENTS.md
 !.pi/agent/AGENTS.md
 CLAUDE.md
+.ai/research/2026-05-15 browser-library-options.md
+.ai/research/2026-05-15 pi-web-access-js-rendering.md
