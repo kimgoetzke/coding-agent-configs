@@ -1,6 +1,6 @@
 import { access, readFile, unlink } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const ACTIVE_MODE_STATUS_KEY = "active-mode";
 const ACTIVE_MODE_WIDGET_KEY = "active-mode";

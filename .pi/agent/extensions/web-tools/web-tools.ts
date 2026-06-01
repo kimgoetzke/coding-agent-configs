@@ -26,8 +26,8 @@
  * preview of results/content.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { Container, Spacer, Text } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { Container, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "@sinclair/typebox";
 
 import { closeBrowserSession, fetchWithBrowser, prewarmBrowserSession } from "./browser-fetcher.js";

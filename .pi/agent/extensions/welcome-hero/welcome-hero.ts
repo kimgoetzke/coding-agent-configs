@@ -1,7 +1,7 @@
 import { access, readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 type ThemeLike = {
   fg?: (token: string, text: string) => string;

@@ -76,7 +76,7 @@ function getState(): TestState {
 
 const stubSources = new Map<string, string>([
   [
-    "web-tools-test:@mariozechner/pi-tui",
+    "web-tools-test:@earendil-works/pi-tui",
     `
       export class Container {
         children = [];
@@ -217,8 +217,8 @@ const stubSources = new Map<string, string>([
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
-    if (specifier === "@mariozechner/pi-tui") {
-      return { shortCircuit: true, url: "web-tools-test:@mariozechner/pi-tui" };
+    if (specifier === "@earendil-works/pi-tui") {
+      return { shortCircuit: true, url: "web-tools-test:@earendil-works/pi-tui" };
     }
     if (specifier === "@sinclair/typebox") {
       return { shortCircuit: true, url: "web-tools-test:@sinclair/typebox" };

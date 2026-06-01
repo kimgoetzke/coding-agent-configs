@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import { parseModelCandidate, resolveCheapModel, summarizeContent, DEFAULT_CHEAP_MODEL_CANDIDATES } from "./cheap-model.ts";
 import type { ResolvedModel } from "./cheap-model.ts";
-import type { Api, Model } from "@mariozechner/pi-ai";
+import type { Api, Model } from "@earendil-works/pi-ai";
 
 // --- parseModelCandidate ---
 
@@ -173,7 +173,7 @@ function makeCompleteFn(response: { text?: string; stopReason?: string; throws?:
       usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
       timestamp: Date.now(),
       api: "anthropic-messages" as const,
-    } as import("@mariozechner/pi-ai").AssistantMessage;
+    } as import("@earendil-works/pi-ai").AssistantMessage;
   };
 }
 

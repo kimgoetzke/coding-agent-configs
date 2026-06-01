@@ -1,4 +1,4 @@
-import type { ExtensionAPI, MessageRenderOptions, Theme } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, MessageRenderOptions, Theme } from "@earendil-works/pi-coding-agent";
 
 const MONTHS = [
   "Jan",

@@ -1,5 +1,5 @@
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { isToolCallEventType } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { isToolCallEventType } from "@earendil-works/pi-coding-agent";
 
 import { showCommandApprovalDialog } from "./approval-dialog";
 import { formatConfirmPrompt, handleBashCommandPolicy, type CommandApprovalRequest } from "./hook";

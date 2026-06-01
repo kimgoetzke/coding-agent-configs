@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { getAgentDir } from "@mariozechner/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { discoverAgentsFromRoots, formatAgentList as formatAgentListFromRoots } from "./agent-discovery.js";
 
 export type AgentScope = "user" | "project" | "both";

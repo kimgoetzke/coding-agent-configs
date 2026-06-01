@@ -1,11 +1,11 @@
-import { complete } from "@mariozechner/pi-ai";
+import { complete } from "@earendil-works/pi-ai";
 import type {
   Api,
   AssistantMessage,
   Context,
   Model,
   ProviderStreamOptions,
-} from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-ai";
 
 import type { WebSearchConfig } from "./config.js";
 

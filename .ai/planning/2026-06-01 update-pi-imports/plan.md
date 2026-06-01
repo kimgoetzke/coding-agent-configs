@@ -12,7 +12,7 @@ Scope is limited to files tracked in this repository. Extensions that live only 
 
 ## Status
 
-Not started
+Complete
 
 ## Work
 
@@ -20,44 +20,44 @@ Not started
 
 Update all 13 TypeScript source files across the 8 in-repo extensions to replace `@mariozechner/` with `@earendil-works/` in every import, type-import, and string literal.
 
-- [ ] Read the relevant skills for this phase before editing any file: (no language-specific skill needed — straightforward string replacement)
-- [ ] Update `active-mode/active-mode.ts`
-- [ ] Update `command-policy/approval-dialog.ts`
-- [ ] Update `command-policy/command-policy.ts`
-- [ ] Update `conversation-statusline/conversation-statusline.ts`
-- [ ] Update `footer-statusline/footer-statusline.ts`
-- [ ] Update `message-timestamps/index.ts`
-- [ ] Update `subagent-support/agents.ts`
-- [ ] Update `subagent-support/subagent-support.ts`
-- [ ] Update `web-tools/cheap-model.ts`
-- [ ] Update `web-tools/cheap-model.test.ts`
-- [ ] Update `web-tools/web-tools.ts`
-- [ ] Update `web-tools/web-tools-registration.test.ts` (string literals in test mock, not just imports)
-- [ ] Update `welcome-hero/welcome-hero.ts`
-- [ ] Update `plan.md` and `findings.md` in line with the `planning` skill
-- **Status:** Pending
+- [x] Read the relevant skills for this phase before editing any file: (no language-specific skill needed — straightforward string replacement)
+- [x] Update `active-mode/active-mode.ts`
+- [x] Update `command-policy/approval-dialog.ts`
+- [x] Update `command-policy/command-policy.ts`
+- [x] Update `conversation-statusline/conversation-statusline.ts`
+- [x] Update `footer-statusline/footer-statusline.ts`
+- [x] Update `message-timestamps/index.ts`
+- [x] Update `subagent-support/agents.ts`
+- [x] Update `subagent-support/subagent-support.ts`
+- [x] Update `web-tools/cheap-model.ts`
+- [x] Update `web-tools/cheap-model.test.ts`
+- [x] Update `web-tools/web-tools.ts`
+- [x] Update `web-tools/web-tools-registration.test.ts` (string literals in test mock, not just imports)
+- [x] Update `welcome-hero/welcome-hero.ts`
+- [x] Update `plan.md` and `findings.md` in line with the `planning` skill
+- **Status:** Complete
 
 ### Phase 2: Update web-tools package manifest and lockfile
 
 Update `web-tools/package.json` to declare `@earendil-works/pi-ai` pinned to `^0.75.0`, then run `npm install` to regenerate the lockfile and `node_modules`.
 
-- [ ] Read the relevant skills for this phase before editing any file: (none applicable)
-- [ ] Update `web-tools/package.json`: replace `@mariozechner/pi-ai` → `@earendil-works/pi-ai` at `^0.75.0`
-- [ ] Run `npm install` inside `web-tools/` to regenerate `package-lock.json` and `node_modules`
-- [ ] Confirm no remaining `@mariozechner` references in `web-tools/package-lock.json`
-- [ ] Update `plan.md` and `findings.md` in line with the `planning` skill
-- **Status:** Pending
+- [x] Read the relevant skills for this phase before editing any file: (none applicable)
+- [x] Update `web-tools/package.json`: replace `@mariozechner/pi-ai` → `@earendil-works/pi-ai` at `^0.75.0`
+- [x] Run `npm install` inside `web-tools/` to regenerate `package-lock.json` and `node_modules`
+- [x] Confirm no remaining `@mariozechner` references in `web-tools/package-lock.json`
+- [x] Update `plan.md` and `findings.md` in line with the `planning` skill
+- **Status:** Complete
 
 ### Phase 3: Verify
 
 Run existing tests to confirm nothing is broken after the migration.
 
-- [ ] Read the relevant skills for this phase before editing any file: `tdd`
-- [ ] Run `web-tools` test suite (`web-tools-registration.test.ts`, `cheap-model.test.ts`)
-- [ ] Run tests for any other in-repo extensions that have test files
-- [ ] Confirm zero remaining `@mariozechner` references across all tracked files (excluding `node_modules`)
-- [ ] Update `plan.md`, `findings.md`, and `progress.md` in line with the `planning` skill
-- **Status:** Pending
+- [x] Read the relevant skills for this phase before editing any file: `tdd`
+- [x] Run `web-tools` test suite (`web-tools-registration.test.ts`, `cheap-model.test.ts`) — 24/24 pass
+- [x] Run tests for any other in-repo extensions that have test files — all pass (active-mode 5/5, command-policy 17/17, conversation-statusline 9/9, footer-statusline 24/24, subagent-support 9/9, welcome-hero 39/39, web-tools misc suites 58/58+)
+- [x] Confirm zero remaining `@mariozechner` references across all tracked files (excluding `node_modules`) — confirmed
+- [x] Update `plan.md`, `findings.md`, and `progress.md` in line with the `planning` skill
+- **Status:** Complete
 
 ## Decisions Made
 

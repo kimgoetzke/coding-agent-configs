@@ -2,7 +2,7 @@ import {
   CustomEditor,
   type ExtensionAPI,
   type ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 import { buildFooterLines } from "./footer.ts";
 import type { FooterStats, FooterUsageTotals } from "./types.ts";

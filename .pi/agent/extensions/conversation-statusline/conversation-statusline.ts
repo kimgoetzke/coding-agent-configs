@@ -1,4 +1,4 @@
-import { CustomEditor, type ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { CustomEditor, type ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { type FullThemeLike, renderLine, renderTopLine } from "./chrome.ts";
 
 class ConversationStatuslineEditor extends CustomEditor {
