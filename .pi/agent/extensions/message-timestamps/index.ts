@@ -65,9 +65,39 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     }),
   );
 
+  // Primary: inject timestamp at turn_end for the final turn (no tool results), while still
+  // inside the agent lifecycle. deliverAs "followUp" flushes right after the last turn,
+  // before agent_end, so the timestamp appears immediately without waiting for user input.
+  pi.on("turn_end", async (event, ctx) => {
+    if (!ctx.hasUI) return;
+    // Only the final turn: no pending tool results.
+    if (event.toolResults.length > 0) return;
+    // Only if the LLM produced a real text response.
+    const msg = event.message as any;
+    const hasText =
+      msg?.role === "assistant" &&
+      Array.isArray(msg.content) &&
+      msg.content.some((c: any) => c.type === "text" && c.text?.trim());
+    if (!hasText) return;
+
+    const receivedAt = new Date();
+    const durationSuffix = submittedAt ? ` · Took ${formatDuration(submittedAt, receivedAt)}` : "";
+    submittedAt = undefined;
+    pi.sendMessage(
+      {
+        customType: AGENT_TIMESTAMP_CUSTOM_TYPE,
+        content: `Received · ${formatTimestamp(receivedAt)}${durationSuffix}`,
+        display: true,
+      },
+      { deliverAs: "followUp" },
+    );
+  });
+
+  // Fallback: if turn_end didn't handle the timestamp (e.g. edge-case turn structure),
+  // agent_end catches it. submittedAt being still set means turn_end didn't fire.
   pi.on("agent_end", async (event, ctx) => {
     if (!ctx.hasUI) return undefined;
-    // Only stamp turns that produced a real text response (not tool-only or thinking-only).
+    if (!submittedAt) return undefined; // already handled in turn_end
     const hasTextResponse = event.messages.some(
       (msg) =>
         msg.role === "assistant" &&
@@ -76,7 +106,7 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     );
     if (!hasTextResponse) return undefined;
     const receivedAt = new Date();
-    const durationSuffix = submittedAt ? ` · Took ${formatDuration(submittedAt, receivedAt)}` : "";
+    const durationSuffix = ` · Took ${formatDuration(submittedAt, receivedAt)}`;
     submittedAt = undefined;
     pi.sendMessage({
       customType: AGENT_TIMESTAMP_CUSTOM_TYPE,
