@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Claude Code statusLine
+# Claude Code statusLine — styled after JetBrains Dark Island theme
 #
-# JetBrains Dark Island palette ANSI approximations:
-#   #E0BB65 (base0A yellow)  -> \e[38;2;224;187;101m
-#   #56A8F5 (base0D blue)    -> \e[38;2;86;168;245m
-#   #CF8E6D (base09 orange)  -> \e[38;2;207;142;109m
-#   #6AAB73 (base0B green)   -> \e[38;2;106;171;115m
-#   #C77DBB (base0E purple)  -> \e[38;2;199;125;187m
-#   #F75464 (base08 red)     -> \e[38;2;247;84;100m
-#   reset                    -> \e[0m
+# Dark Island palette ANSI approximations:
+#   #E0BB65 (yellow)   -> \e[38;2;224;187;101m
+#   #56A8F5 (blue)     -> \e[38;2;86;168;245m
+#   #CF8E6D (orange)   -> \e[38;2;207;142;109m
+#   #6AAB73 (green)    -> \e[38;2;106;171;115m
+#   #C77DBB (purple)   -> \e[38;2;199;125;187m
+#   #F75464 (red)      -> \e[38;2;247;84;100m
+#   reset              -> \e[0m
 
 input=$(cat)
 
@@ -16,17 +16,19 @@ cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // ""')
 model=$(echo "$input" | jq -r '.model.display_name // ""')
 used=$(echo "$input" | jq -r '.context_window.used_percentage // empty')
 
-# Shorten path: replace $HOME with ~, then apply agnoster-style (show only last two segments)
-home="~"
-short_path="${cwd/#$home/\~}"
-# Agnoster style: show only last two path components (or full if shallow)
+# Shorten path: normalise separators, replace $HOME with ~, then show only last two segments
+home="/c/Users/KimGoetzke"
+norm_path="${cwd//\\//}"          # convert any backslashes to forward slashes
+short_path="${norm_path/#$home/\~}"
+# Show only the last two path components, prefixed with ... when truncated; display with backslashes
 agnoster_path=$(echo "$short_path" | awk -F'/' '{
   if (NF <= 2) {
     print $0
   } else {
-    print $(NF-1) "/" $NF
+    print "..." FS $(NF-1) FS $NF
   }
 }')
+agnoster_path="${agnoster_path//\//\\\\}"  # display Windows-style backslashes (doubled to survive printf %b)
 
 # Git branch and file counts (skip optional lock flags to be safe)
 git_branch=""
@@ -53,7 +55,7 @@ fi
 context_part=""
 if [ -n "$used" ]; then
   used_int=${used%.*}
-  if [ "$used_int" -ge 75 ]; then
+  if [ "$used_int" -ge 49 ]; then
     # Red when high
     context_part=$(printf '\e[38;2;247;84;100m ctx:%s%%\e[0m' "$used_int")
   else
@@ -61,30 +63,29 @@ if [ -n "$used" ]; then
   fi
 fi
 
-# Compose the line — mirrors the oh-my-posh left block layout:
-# [HH:MM:SS]  <path>  <branch>  <model>  <context>
-time_part=$(printf '\e[38;2;224;187;101m[%s]\e[0m' "$(date +%H:%M:%S)")
+# Compose the layout — two rows, both left-aligned:
+#   row 1: <path>  <branch>  <git counts>
+#   row 2: <model>  <context>
 path_part=$(printf '\e[38;2;86;168;245m%s\e[0m' "$agnoster_path")
 model_part=$(printf '\e[38;2;207;142;109m%s\e[0m' "$model")
 
-output="$time_part  $path_part"
+row1="$path_part"
 
 if [ -n "$git_branch" ]; then
   branch_part=$(printf '\e[38;2;224;187;101m\xef\x90\x98 %s\e[0m' "$git_branch")
-  output="$output  $branch_part"
+  row1="$row1  $branch_part"
   # Git file count indicators: S=staged (green), U=unstaged (orange), A=untracked (purple)
   git_counts=""
   [ "$git_staged" -gt 0 ]    && git_counts="$git_counts$(printf '\e[38;2;106;171;115mS:%d\e[0m' "$git_staged") "
   [ "$git_unstaged" -gt 0 ]  && git_counts="$git_counts$(printf '\e[38;2;207;142;109mU:%d\e[0m' "$git_unstaged") "
   [ "$git_untracked" -gt 0 ] && git_counts="$git_counts$(printf '\e[38;2;199;125;187mA:%d\e[0m' "$git_untracked") "
   git_counts="${git_counts% }"  # trim trailing space
-  [ -n "$git_counts" ] && output="$output  $git_counts"
+  [ -n "$git_counts" ] && row1="$row1  $git_counts"
 fi
 
-output="$output  $model_part"
-
+row2="$model_part"
 if [ -n "$context_part" ]; then
-  output="$output  $context_part"
+  row2="$row2 $context_part"
 fi
 
-printf '%b\n' "$output"
+printf '%b\n%b\n' "$row1" "$row2"
