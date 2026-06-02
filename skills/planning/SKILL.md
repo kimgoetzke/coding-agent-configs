@@ -64,8 +64,8 @@ Create the remaining planning files from the templates based on the determinatio
 - Return a summarised version of the plan to the user
 - You must highlight if there are unresolved questions or if the plan is ready for implementation
 - Recommend to the user that they rename this conversation:
-  - If running in Claude Code or GitHub Copilot, recommend: "You can run `/rename {task-name}` to rename this conversation."
-  - If running in Pi, recommend: "You can run `/name {task-name}` to name this conversation."
+  - If running in GitHub Copilot, recommend: "You can run `/rename {task-name}` to rename this conversation."
+  - If running in Claude Code or Pi, recommend: "You can run `/name {task-name}` to name this conversation."
   - Otherwise, recommend: "Consider renaming this conversation to `{task-name}` if your tool supports it."
 
 ## Critical rules

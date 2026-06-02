@@ -76,8 +76,8 @@ Parse the arguments:
 2. Invoke the `persist` skill to begin researching the topic.
 3. After the `persist` skill creates the research document, update the flag file's `document:` line with the file path.
 4. Confirm to the user: "Research mode is on. I'll keep updating {document path} as we go. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
-5. If running in Claude Code, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
-6. If running in Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+5. If running in Copilot, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+6. If running in Claude Code or Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
 
 ### Step 3c: Continue an existing research doc
 
@@ -106,8 +106,8 @@ Parse the arguments:
    started: {yyyy-mm-dd HH:mm}
    ```
 9. Confirm to the user: "Research mode is on. Continuing `{document path}`. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
-10. If running in Claude Code, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
-11. If running in Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+10. If running in Copilot, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+11. If running in Claude Code or Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
 
 ### Step 4: Keep the research document updated
 

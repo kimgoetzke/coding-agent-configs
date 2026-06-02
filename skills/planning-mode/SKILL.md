@@ -133,8 +133,8 @@ Parse the arguments:
 8. Briefly summarise the plan's current state to the user — current phase, status, any open questions or blockers — based only on the loaded docs.
 9. Confirm: "Planning mode is on. Continuing `{folder path}`. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
 10. Recommend renaming the conversation:
-    - If running in Claude Code or GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation." where `{task name}` is the folder name with the date prefix removed.
-    - If running in Pi, recommend: "You can run `/name {task name}` to name this conversation." where `{task name}` is the folder name with the date prefix removed.
+    - If running in GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation." where `{task name}` is the folder name with the date prefix removed.
+    - If running in Claude Code or Pi, recommend: "You can run `/name {task name}` to name this conversation." where `{task name}` is the folder name with the date prefix removed.
     - Otherwise, recommend: "Consider renaming this conversation to `{task name}` if your tool supports it."
 11. Skip Steps 4–7 (the plan already exists). Continue with Step 8 (keep planning documents updated).
 
@@ -166,8 +166,8 @@ You must use the starting templates (see [Planning files](#planning-files)) when
 1. Return a summarised version of the plan to the user. Highlight if there are unresolved questions or if the plan is ready for implementation.
 2. Confirm to the user: "Planning mode is on. I'll keep updating the planning docs in {plan folder path} as we go. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
 3. Recommend to the user that they rename this conversation:
-   - If running in Claude Code or GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation."
-   - If running in Pi, recommend: "You can run `/name {task name}` to name this conversation."
+   - If running in GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation."
+   - If running in Claude Code or Pi, recommend: "You can run `/name {task name}` to name this conversation."
    - Otherwise, recommend: "Consider renaming this conversation to `{task name}` if your tool supports it."
 
 ### Step 8: Keep planning documents updated
