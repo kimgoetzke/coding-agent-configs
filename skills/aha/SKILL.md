@@ -70,8 +70,19 @@ For each confirmed candidate:
 3. Resolve `{repo root}` and create `.ai/insight/` if missing
 4. Write the file to `{repo root}/.ai/insight/{yyyy-mm-dd} {succinct-description}.md`
 5. Fill every section of the template; omit a section's that would have no body
+6. **Make it standalone** — see [Standalone framing](#standalone-framing) below
 
 After writing, report the filenames back to the user.
+
+### Standalone framing
+
+An insight must make sense to a reader who has **no knowledge of the PR, conversation, or task that produced it**. The capture context is not part of the record.
+
+- **Strip context-relative references.** Remove phrases like "in this PR", "the change above", "as we discussed", "the bug we just fixed", "your new method". State the insight in general, timeless terms instead.
+- **Don't reference code the reader can't see.** If you mention a symbol, file, or snippet, either inline the relevant code in the `## Example` section or point to it via a permalink / `path:line` ref in `## Permalink`. Never assume the reader can see a diff or the surrounding code.
+- **Prefer permalinks over working-tree paths** when the code may move — a `path:line` ref rots; a commit-pinned permalink doesn't.
+- **Example code is fine** even if it originated from the PR, provided the snippet is self-contained and illustrates the general point — not "the line you changed".
+- **Re-read test**: before writing, re-read the draft as if you'd never seen the conversation. If any sentence only makes sense with that hidden context, rewrite it.
 
 ## Mode 2: Capture with topic hint
 
@@ -125,6 +136,7 @@ When all insights are exhausted:
 ## Critical rules
 
 - **Never write an insight without user confirmation** — always propose first
+- **Insights must be standalone** — no reader should need knowledge of the originating PR, conversation, or task to understand them; see [Standalone framing](#standalone-framing)
 - **Never overwrite or update an existing insight file (unless asked to)** without explicit user approval; if the description collides, append a short disambiguating suffix
 - **Be concise**: the value of an insight note is that it's quickly re-readable later
 - **Don't capture project decisions or plans** — those belong in `.ai/planning/` or ADRs, not here
