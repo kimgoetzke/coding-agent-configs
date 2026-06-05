@@ -349,21 +349,32 @@ Count `{additions}` and `{deletions}` over **only the lines in that `<details>`*
 
 **First, drop every file-header line from the slice** — any line starting with `diff --git`, `index `, `--- `, or `+++ `. These only repeat the file path, which the `<summary>` already shows as a clickable permalink, so they add noise and nothing else. The rendered diff starts at the first `@@` hunk header.
 
-For each remaining line of the per-file diff slice, wrap it in a `<span class="line ...">` element. HTML-escape the line content (`&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`). Concatenate all spans inside the `<pre class="diff"><code>...</code></pre>`. No line breaks between spans — each span has `display: block` via CSS.
+For each remaining line of the per-file diff slice, emit a `<span class="line ...">` element that carries **two line-number gutters** (old file, new file) followed by the line content — the same gutter layout GitHub shows. Concatenate all `line` spans inside the `<pre class="diff"><code>...</code></pre>` with no line breaks between them — each has `display: block` via CSS.
 
-Classify the remaining lines by their leading characters:
+Each line span has this internal shape:
 
-| Leading characters | Class               | Notes                                  |
-| ------------------ | ------------------- | -------------------------------------- |
-| `@@`               | `line hunk`         | Hunk header                            |
-| `+` (not `+++`)    | `line add`          | Addition                               |
-| `-` (not `---`)    | `line del`          | Deletion                               |
-| Any other          | `line`              | Context                                |
+```html
+<span class="line {class}"><span class="ln ln-old">{old}</span><span class="ln ln-new">{new}</span><span class="lc">{escaped content}</span></span>
+```
+
+- `{escaped content}` is the verbatim line (leading `+`/`-`/space kept) with `&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`.
+- The two gutters are marked `user-select: none` in CSS, so copying the diff yields only the code, never the line numbers.
+
+**Computing the gutter numbers.** Track two counters, `old` and `new`. Reset them at every hunk header: a header `@@ -{oldStart},{oldLen} +{newStart},{newLen} @@` sets `old = oldStart` and `new = newStart`. Then per line:
+
+| Leading characters | Class       | `ln-old` | `ln-new` | After emitting          |
+| ------------------ | ----------- | -------- | -------- | ----------------------- |
+| `@@`               | `line hunk` | empty    | empty    | reset `old`/`new` from header |
+| Any other (context)| `line`      | `old`    | `new`    | `old++`, `new++`        |
+| `+` (not `+++`)    | `line add`  | empty    | `new`    | `new++`                 |
+| `-` (not `---`)    | `line del`  | `old`    | empty    | `old++`                 |
+
+Always emit both `<span class="ln …">` elements even when empty, so columns stay aligned.
 
 Example:
 
 ```html
-<span class="line hunk">@@ -10,7 +10,9 @@ public class OrderController {</span><span class="line"> public ResponseEntity&lt;Order&gt; create() {</span><span class="line del">-    return ResponseEntity.ok(service.createDefault());</span><span class="line add">+    return ResponseEntity.ok(service.create(request));</span>
+<span class="line hunk"><span class="ln ln-old"></span><span class="ln ln-new"></span><span class="lc">@@ -10,7 +10,9 @@ public class OrderController {</span></span><span class="line"><span class="ln ln-old">10</span><span class="ln ln-new">10</span><span class="lc"> public ResponseEntity&lt;Order&gt; create() {</span></span><span class="line del"><span class="ln ln-old">11</span><span class="ln ln-new"></span><span class="lc">-    return ResponseEntity.ok(service.createDefault());</span></span><span class="line add"><span class="ln ln-old"></span><span class="ln ln-new">11</span><span class="lc">+    return ResponseEntity.ok(service.create(request));</span></span>
 ```
 
 ### After writing

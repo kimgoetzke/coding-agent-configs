@@ -152,12 +152,25 @@
   .diff { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0; overflow-x: auto; margin: 1rem 0; }
   .diff .line {
     display: block;
-    padding: 0 1rem;
     white-space: pre;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: .85rem;
     line-height: 1.5;
   }
+  .diff .ln {
+    display: inline-block;
+    width: 3.5rem;
+    padding: 0 .5rem;
+    text-align: right;
+    color: var(--muted);
+    background: var(--surface);
+    user-select: none;
+    -webkit-user-select: none;
+    position: sticky;
+  }
+  .diff .ln-old { left: 0; }
+  .diff .ln-new { left: 3.5rem; border-right: 1px solid var(--border); }
+  .diff .lc { padding: 0 1rem; }
   .diff .line.add { background: var(--add-bg); color: var(--add-fg); }
   .diff .line.del { background: var(--del-bg); color: var(--del-fg); }
   .diff .line.hunk { color: var(--hunk-fg); font-weight: 600; }
