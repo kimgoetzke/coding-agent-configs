@@ -324,7 +324,7 @@ The `<summary>` shows the file as a permalink plus an additions/deletions count.
 
   <details class="diff-wrapper">
     <summary><a href="{permalink}"><code>{file path}</code></a> <span class="diff-stats">+{additions} −{deletions}</span></summary>
-    <pre class="diff"><code>{wrapped diff lines for this file}</code></pre>
+    <pre class="diff" data-lang="{lang}"><code>{wrapped diff lines for this file}</code></pre>
   </details>
   ...
 </section>
@@ -336,7 +336,7 @@ The `<summary>` shows the file as a permalink plus an additions/deletions count.
 
   <details class="diff-wrapper">
     <summary><a href="{permalink}"><code>{file path}</code></a> <span class="diff-seg">{segment title}</span> <span class="diff-stats">+{additions} −{deletions}</span></summary>
-    <pre class="diff"><code>{wrapped diff lines for this segment's hunks only}</code></pre>
+    <pre class="diff" data-lang="{lang}"><code>{wrapped diff lines for this segment's hunks only}</code></pre>
   </details>
 </section>
 ```
@@ -376,6 +376,32 @@ Example:
 ```html
 <span class="line hunk"><span class="ln ln-old"></span><span class="ln ln-new"></span><span class="lc">@@ -10,7 +10,9 @@ public class OrderController {</span></span><span class="line"><span class="ln ln-old">10</span><span class="ln ln-new">10</span><span class="lc"> public ResponseEntity&lt;Order&gt; create() {</span></span><span class="line del"><span class="ln ln-old">11</span><span class="ln ln-new"></span><span class="lc">-    return ResponseEntity.ok(service.createDefault());</span></span><span class="line add"><span class="ln ln-old"></span><span class="ln ln-new">11</span><span class="lc">+    return ResponseEntity.ok(service.create(request));</span></span>
 ```
+
+### Syntax highlighting
+
+The template bundles **highlight.js** inline (no network, single file). It highlights at view time, so you do **not** emit any token markup — keep emitting lines exactly as in "Diff line wrapping" above. Your only job is to set the `data-lang` attribute on each `<pre class="diff" data-lang="{lang}">`.
+
+`{lang}` is a highlight.js language id derived from the file's extension. Map common ones:
+
+| Extension(s)                  | `{lang}`     |
+| ----------------------------- | ------------ |
+| `.java`                       | `java`       |
+| `.kt`, `.kts`                 | `kotlin`     |
+| `.js`, `.mjs`, `.cjs`         | `javascript` |
+| `.ts`, `.tsx`                 | `typescript` |
+| `.py`                         | `python`     |
+| `.go`                         | `go`         |
+| `.rs`                         | `rust`       |
+| `.rb`                         | `ruby`       |
+| `.sql`                        | `sql`        |
+| `.sh`, `.bash`                | `bash`       |
+| `.yml`, `.yaml`               | `yaml`       |
+| `.json`                       | `json`       |
+| `.xml`, `.html`               | `xml`        |
+| `.css`                        | `css`        |
+| `.md`                         | `markdown`   |
+
+For an extension not listed, use the matching highlight.js id if you know it, otherwise **omit `data-lang` entirely** — the embedded script skips any `<pre>` without it (and any unknown id), leaving the diff colouring intact. The script highlights only `.lc` content on non-hunk, non-meta lines, and never touches the gutters or the leading `+`/`-`/space marker.
 
 ### After writing
 
