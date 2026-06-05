@@ -145,7 +145,26 @@ Each plan should:
 
 - Have a short name (3-5 words)
 - Have a one-line description
-- List its stops in order, each stop labelled with the file(s) it covers (wrap each file path in a markdown link to its permalink)
+- List its stops in order, each stop labelled with the file(s) — or the segment of a file (see below) — it covers (wrap each file path in a markdown link to its permalink)
+
+### Splitting large or complex files into multiple stops
+
+One file does not always mean one stop. A file with a large or multi-themed change deserves **several** stops, each covering part of it, so the explanation tracks the change instead of collapsing hundreds of lines into a sentence or two.
+
+For each **essence** file, decide whether to split it. Split when any of these hold:
+
+- the file's changed-line count (additions + deletions) exceeds ~60, or
+- the file has 4 or more hunks, or
+- the hunks address clearly distinct concerns (e.g. a new interface in one place and three unrelated call-site rewrites elsewhere).
+
+When you split a file, divide its diff into **segments**. A segment is one or more *consecutive* `@@` hunks that share a single theme. Group hunks by concern — read them and cluster related hunks rather than slicing mechanically by line count. Give each segment a short title (3-5 words) and order the segments to tell a coherent story (usually top-to-bottom through the file; reorder only if a later hunk explains an earlier one).
+
+Each stop then covers exactly one of:
+
+- one or more whole files (small, single-theme files), or
+- a single segment of one split file.
+
+Do not mix whole-file and segment coverage in one stop, and never put segments from two different files in the same stop. A split file therefore contributes as many stops as it has segments, each with its own title, framing, and diff.
 
 Present plans to the user:
 
@@ -160,10 +179,10 @@ This step runs in **interactive** mode only. In **html** mode, skip to Step 7.
 
 Once the user picks a plan, walk through its stops in order. For each stop:
 
-1. Print a heading: `## Stop {n}/{total}: {short stop title}`
-2. On the next line, list the file(s) covered as markdown links to their permalinks (e.g. `Files: [`src/Foo.java`]({permalink}), [`src/Bar.java`]({permalink})`).
-3. One sentence framing what this stop shows and why it comes here in the sequence.
-4. Show the **verbatim diff** for the file(s) at this stop in a fenced ```diff block. Slice it from the full diff fetched in Step 1 — split on lines matching `^diff --git a/.* b/.*` and pick the section(s) for the file(s) at this stop. Do not paraphrase the diff.
+1. Print a heading: `## Stop {n}/{total}: {short stop title}` (for a segment stop, use the segment title; the file recurs across its segments, so the title is what distinguishes them).
+2. On the next line, list the file(s) covered as markdown links to their permalinks (e.g. `Files: [`src/Foo.java`]({permalink}), [`src/Bar.java`]({permalink})`). For a segment stop, name the file once and note which part it is (e.g. `File: [`src/Foo.java`]({permalink}) — validation hunks`).
+3. One sentence framing what this stop (or segment) shows and why it comes here in the sequence.
+4. Show the **verbatim diff** for this stop in a fenced ```diff block. Slice it from the full diff fetched in Step 1 — split on lines matching `^diff --git a/.* b/.*` and pick the section(s) for the file(s) at this stop. If the stop covers a **segment** of a split file (see Step 4), slice that file's section further to only the segment's hunks: a hunk runs from a `@@ … @@` line up to (but not including) the next `@@` line or the end of the file's section, and the `@@` header stays with its hunk. Do not paraphrase the diff.
 5. Stop and present the four numbered choices below.
 
 Choices to offer after every stop (always in this order):
@@ -289,13 +308,16 @@ If only one plan was designed, omit the `<details>` block and just show the chos
 
 ### Walkthrough stops
 
-One `<section class="stop">` per stop in the chosen plan. Inside each stop, emit **one `<details class="diff-wrapper">` per file**, not one per stop. This gives natural visual separation between files, lets the user expand only the files they care about, and avoids confusion about where one file's diff ends and the next begins.
+One `<section class="stop">` per stop in the chosen plan. Inside each stop, emit **one `<details class="diff-wrapper">` per file** for a whole-file stop, or **one `<details>` for the segment** for a segment stop (see Step 4). Never put more than one file — or more than one segment — in a single `<details>`. This gives natural visual separation, lets the user expand only what they care about, and avoids confusion about where one diff ends and the next begins.
+
+Because a split file contributes several stops, each segment lands in its own `<section class="stop">` with its own heading, framing, and diff — exactly like any other stop. The file's permalink recurs across those sections; the segment title is what tells them apart.
 
 Every `<details>` stays **closed by default** so large PRs feel less intimidating.
 
-The `<summary>` for each file shows the file as a permalink plus its additions/deletions count:
+The `<summary>` shows the file as a permalink plus an additions/deletions count. For a segment stop, add a `<span class="diff-seg">` with the segment title so the user can tell which part of the file it is:
 
 ```html
+<!-- whole-file stop -->
 <section class="stop" id="stop-{n}">
   <h3>Stop {n}/{total}: {stop title}</h3>
   <p class="stop-frame">{one-sentence framing}</p>
@@ -304,26 +326,35 @@ The `<summary>` for each file shows the file as a permalink plus its additions/d
     <summary><a href="{permalink}"><code>{file path}</code></a> <span class="diff-stats">+{additions} −{deletions}</span></summary>
     <pre class="diff"><code>{wrapped diff lines for this file}</code></pre>
   </details>
+  ...
+</section>
+
+<!-- segment stop (one of several for the same split file) -->
+<section class="stop" id="stop-{n}">
+  <h3>Stop {n}/{total}: {segment title}</h3>
+  <p class="stop-frame">{one-sentence framing of this segment}</p>
 
   <details class="diff-wrapper">
-    <summary><a href="{permalink}"><code>{file path}</code></a> <span class="diff-stats">+{additions} −{deletions}</span></summary>
-    <pre class="diff"><code>{wrapped diff lines for this file}</code></pre>
+    <summary><a href="{permalink}"><code>{file path}</code></a> <span class="diff-seg">{segment title}</span> <span class="diff-stats">+{additions} −{deletions}</span></summary>
+    <pre class="diff"><code>{wrapped diff lines for this segment's hunks only}</code></pre>
   </details>
-  ...
 </section>
 ```
 
-Count `{additions}` and `{deletions}` **per file**: additions are lines starting with `+` (excluding `+++`), deletions are lines starting with `-` (excluding `---`), counted within that file's diff slice only.
+Slice a segment's hunks exactly as in Step 5: a hunk runs from a `@@ … @@` line up to (but not including) the next `@@` line or the end of the file's section, and the `@@` header stays with its hunk. As a refinement, point the segment's permalink at the changed lines by appending a line anchor for the new-file side — `#L{start}` (or `#L{start}-L{end}`), where `{start}` is the new-file start line from the segment's first `@@ -a,b +start,len @@` header and `{end}` is `start + len − 1` of its last hunk.
+
+Count `{additions}` and `{deletions}` over **only the lines in that `<details>`** — the file's slice for a whole-file stop, or the segment's hunks for a segment stop: additions are lines starting with `+` (excluding `+++`), deletions are lines starting with `-` (excluding `---`).
 
 ### Diff line wrapping
 
-For each line of the per-file diff slice, wrap it in a `<span class="line ...">` element. HTML-escape the line content (`&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`). Concatenate all spans inside the `<pre class="diff"><code>...</code></pre>`. No line breaks between spans — each span has `display: block` via CSS.
+**First, drop every file-header line from the slice** — any line starting with `diff --git`, `index `, `--- `, or `+++ `. These only repeat the file path, which the `<summary>` already shows as a clickable permalink, so they add noise and nothing else. The rendered diff starts at the first `@@` hunk header.
 
-Classify lines by their leading characters:
+For each remaining line of the per-file diff slice, wrap it in a `<span class="line ...">` element. HTML-escape the line content (`&` → `&amp;`, `<` → `&lt;`, `>` → `&gt;`). Concatenate all spans inside the `<pre class="diff"><code>...</code></pre>`. No line breaks between spans — each span has `display: block` via CSS.
+
+Classify the remaining lines by their leading characters:
 
 | Leading characters | Class               | Notes                                  |
 | ------------------ | ------------------- | -------------------------------------- |
-| `+++ ` or `--- `   | `line meta`         | File headers                           |
 | `@@`               | `line hunk`         | Hunk header                            |
 | `+` (not `+++`)    | `line add`          | Addition                               |
 | `-` (not `---`)    | `line del`          | Deletion                               |
@@ -332,7 +363,7 @@ Classify lines by their leading characters:
 Example:
 
 ```html
-<span class="line meta">--- a/src/OrderController.java</span><span class="line meta">+++ b/src/OrderController.java</span><span class="line hunk">@@ -10,7 +10,9 @@ public class OrderController {</span><span class="line"> public ResponseEntity&lt;Order&gt; create() {</span><span class="line del">-    return ResponseEntity.ok(service.createDefault());</span><span class="line add">+    return ResponseEntity.ok(service.create(request));</span>
+<span class="line hunk">@@ -10,7 +10,9 @@ public class OrderController {</span><span class="line"> public ResponseEntity&lt;Order&gt; create() {</span><span class="line del">-    return ResponseEntity.ok(service.createDefault());</span><span class="line add">+    return ResponseEntity.ok(service.create(request));</span>
 ```
 
 ### After writing
