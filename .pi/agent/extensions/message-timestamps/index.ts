@@ -58,8 +58,8 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     (message, _options: MessageRenderOptions, theme: Theme) => ({
       render: (width: number): string[] => {
         const timestamp = String(message.content);
-        const padding = " ".repeat(Math.max(0, width - timestamp.length - 1));
-        return [theme.fg("accent", ` ${timestamp}${padding}`)];
+        const padding = " ".repeat(Math.max(0, width - timestamp.length));
+        return [theme.fg("accent", `${timestamp}${padding}`)];
       },
       invalidate: () => {},
     }),
@@ -88,7 +88,7 @@ export default function messageTimestampsExtension(pi: ExtensionAPI) {
     const durationSuffix = submittedAt ? ` · Took ${formatDuration(submittedAt, receivedAt)}` : "";
     submittedAt = undefined;
     const content = `Received · ${formatTimestamp(receivedAt)}${durationSuffix}`;
-    ctx.ui.setWidget("received-timestamp", [ctx.ui.theme.fg("accent", ` ${content}`)]);
+    ctx.ui.setWidget("received-timestamp", [ctx.ui.theme.fg("accent", content)]);
   });
 
   pi.on("input", async (event, ctx) => {
