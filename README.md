@@ -101,6 +101,9 @@ Skills that persist work to disk all write under a `.ai/` directory at your proj
 ```
 your-project/
 ├── .ai/
+│   ├── insight/                          # /aha
+│   │   ├── 2026-06-02 my-insight-1.md
+│   │   └── 2026-06-06 my-insight-2.md
 │   ├── docs/
 │   │   └── adr/                          # /grill-me, /improve-codebase
 │   │       ├── 0001-my-decision-1.md
