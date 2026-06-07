@@ -101,13 +101,13 @@ Skills that persist work to disk all write under a `.ai/` directory at your proj
 ```
 your-project/
 ├── .ai/
-│   ├── insight/                          # /aha
-│   │   ├── 2026-06-02 my-insight-1.md
-│   │   └── 2026-06-06 my-insight-2.md
 │   ├── docs/
 │   │   └── adr/                          # /grill-me, /improve-codebase
 │   │       ├── 0001-my-decision-1.md
 │   │       └── 0002-my-decision-2.md
+│   ├── insight/                          # /aha
+│   │   ├── 2026-06-02 my-insight-1.md
+│   │   └── 2026-06-06 my-insight-2.md
 │   ├── planning/                         # /planning, /planning-mode
 │   │   └── 2026-04-01 my-task/
 │   │       ├── 2026-04-02 my-topic.md    # /research-mode, /persist within plan context
