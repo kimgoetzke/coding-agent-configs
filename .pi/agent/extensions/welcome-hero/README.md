@@ -10,9 +10,9 @@ On session start the widget appears above the input field:
 ╭────────────────────────────────────────┬─────────────────────────────────╮
 │                                        │                                 │
 │ ██████    Welcome!                     │ Loaded                          │
-│ ██  ██    claude-sonnet-4-6            │ ✓ 3 context files               │
-│ ████  ██  anthropic                    │ ✓ 18 skills                     │
-│ ██    ██                               │ ✓ 9 extensions                  │
+│ ██  ██                                 │ ✓ 3 context files               │
+│ ████  ██  claude-sonnet-4-6            │ ✓ 18 skills                     │
+│ ██    ██  anthropic                    │ ✓ 9 extensions                  │
 │                                        │ ✓ 0 prompts                     │
 │                                        │                                 │
 ╰────────────────────────────────────────┴─────────────────────────────────╯
@@ -23,7 +23,7 @@ The widget is dismissed automatically when the agent starts its first response.
 ## What it does
 
 - On `session_start` (startup only, not `/reload`): discovers loaded counts and registers a widget via `ctx.ui.setWidget` placed `aboveEditor`
-- Left column: 4-row Pi logo (block characters) with "Welcome!", model ID, and provider
+- Left column: 4-row Pi logo (block characters) with "Welcome!", a blank line, model ID, and provider
 - Right column: "Loaded" heading with tick-prefixed counts for context files, skills, extensions, and prompt templates
 - On `before_agent_start`: removes the widget so it doesn't persist into the conversation
 - Adapts to terminal width; returns no output if the terminal is too narrow to render meaningfully

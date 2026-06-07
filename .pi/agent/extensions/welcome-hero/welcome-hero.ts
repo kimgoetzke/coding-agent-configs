@@ -100,12 +100,12 @@ export function renderHero(
 
   const border = (text: string) => fg(theme, "borderAccent", text);
 
-  const leftTextPlain = ["Welcome!", model, provider, "", ""];
+  const leftTextPlain = ["Welcome!", "", model, provider, ""];
   const leftTextColoured = [
     fg(theme, "mdCode", bold(theme, "Welcome!")),
+    "",
     fg(theme, "warning", model),
     fg(theme, "dim", provider),
-    "",
     "",
   ];
 

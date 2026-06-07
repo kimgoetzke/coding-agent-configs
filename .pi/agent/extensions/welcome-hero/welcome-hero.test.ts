@@ -133,6 +133,14 @@ test("renderHero contains model and provider", () => {
   assert.ok(joined.includes("anthropic"));
 });
 
+test("renderHero renders a blank line between greeting and model", () => {
+  const lines = renderHero(120, "claude-opus-4-7", "anthropic", EMPTY_COUNTS, {});
+  assert.ok(lines[2].includes("Welcome!"), `expected greeting in: ${lines[2]}`);
+  assert.ok(!lines[3].includes("claude-opus-4-7"), `expected blank model row in: ${lines[3]}`);
+  assert.ok(lines[4].includes("claude-opus-4-7"), `expected model in: ${lines[4]}`);
+  assert.ok(lines[5].includes("anthropic"), `expected provider in: ${lines[5]}`);
+});
+
 test("renderHero contains Loaded heading", () => {
   const lines = renderHero(120, "m", "p", EMPTY_COUNTS, {});
   assert.ok(lines.join("\n").includes("Loaded"));
