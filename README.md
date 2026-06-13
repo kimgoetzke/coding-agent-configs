@@ -15,7 +15,7 @@ Run one of the commands below for your coding agent. The script will ask if you 
 
 Bash:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.sh | bash -s -- --pi
+curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/update-pi.sh | bash
 ```
 
 PowerShell:
@@ -23,18 +23,13 @@ PowerShell:
 & ([scriptblock]::Create((iwr -useb 'https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/setup.ps1').Content)) -Agent pi
 ```
 
-After running the above, you'll have to run `npm install` in some of the extension folders (`~/.pi/agent/extensions/{extension name}`):
+If using PowerShell, after running the above, you'll have to run `npm install` in some of the extension folders (`~/.pi/agent/extensions/{extension name}`):
 
 ```
 cd ~/.pi/agent/extensions/web-tools
 npm install
 cd ~/.pi/agent/extensions/command-policy
 npm install
-```
-
-Alternatively, you can run the following which combines all of the below (and also works when `npm` is not in PATH but Nix is available):
-```bash
-curl -fsSL https://raw.githubusercontent.com/kimgoetzke/coding-agent-configs/main/update-pi.sh | bash
 ```
 
 #### Claude Code
