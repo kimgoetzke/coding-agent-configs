@@ -204,6 +204,16 @@ test("summarizeContent returns null when completeFn throws", async () => {
   assert.equal(result, null);
 });
 
+test("summarizeContent returns null when summarisation times out", async () => {
+  const completeFn = async () => new Promise<never>(() => {});
+  const startedAt = Date.now();
+
+  const result = await summarizeContent(makeResolvedModel(), "query", "content", undefined, completeFn, 20);
+
+  assert.equal(result, null);
+  assert.ok(Date.now() - startedAt < 500);
+});
+
 test("summarizeContent returns null when response contains no text blocks", async () => {
   const completeFn = makeCompleteFn({ text: undefined });
   const result = await summarizeContent(makeResolvedModel(), "query", "content", undefined, completeFn);

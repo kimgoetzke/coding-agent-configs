@@ -16,7 +16,7 @@
  * throws with a helpful message.
  */
 
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { mkdtempSync, readdirSync, statSync, rmSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
@@ -36,11 +36,15 @@ export interface GitHubFetchOptions {
   apiBase?: string;
   rawBase?: string;
   sizeThresholdMb?: number;
+  cloneTimeoutMs?: number;
+  /** Override clone operation — used in tests to simulate clone failures. */
+  cloneRepo?: (cloneUrl: string, cloneDir: string, signal: AbortSignal, timeoutMs: number) => Promise<void>;
   /** Override token getter — used in tests to simulate gh CLI absence. */
   getToken?: () => Promise<string | null>;
 }
 
 const SIZE_THRESHOLD_MB = 350;
+const DEFAULT_CLONE_TIMEOUT_MS = 30_000;
 const USER_AGENT = "Mozilla/5.0 (compatible; pi-web-tools/1.0)";
 const CHARS_PER_TOKEN = 4;
 
@@ -167,6 +171,101 @@ async function githubFetch(
   return fetch(url, { headers, signal });
 }
 
+async function cloneRepository(
+  cloneUrl: string,
+  cloneDir: string,
+  signal: AbortSignal,
+  timeoutMs: number,
+): Promise<void> {
+  if (signal.aborted) throw new Error("GitHub clone aborted");
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let timedOut = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let abortHandler: (() => void) | undefined;
+    const child = spawn("git", ["clone", "--depth", "1", cloneUrl, cloneDir], {
+      stdio: "ignore",
+    });
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      if (abortHandler) signal.removeEventListener("abort", abortHandler);
+      if (error) reject(error);
+      else resolve();
+    };
+
+    abortHandler = () => {
+      child.kill("SIGKILL");
+      finish(new Error("GitHub clone aborted"));
+    };
+
+    timeoutId = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGKILL");
+      finish(new Error("GitHub clone timed out"));
+    }, timeoutMs);
+    timeoutId.unref?.();
+
+    signal.addEventListener("abort", abortHandler, { once: true });
+
+    child.on("error", (error) => finish(error));
+    child.on("exit", (code) => {
+      if (code === 0) {
+        finish();
+      } else if (timedOut) {
+        finish(new Error("GitHub clone timed out"));
+      } else if (signal.aborted) {
+        finish(new Error("GitHub clone aborted"));
+      } else {
+        finish(new Error(`GitHub clone failed with exit code ${code ?? "unknown"}`));
+      }
+    });
+  });
+}
+
+async function runCloneWithDeadline(
+  cloneRepo: NonNullable<GitHubFetchOptions["cloneRepo"]>,
+  cloneUrl: string,
+  cloneDir: string,
+  signal: AbortSignal,
+  timeoutMs: number,
+): Promise<void> {
+  if (signal.aborted) throw new Error("GitHub clone aborted");
+
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let abortHandler: (() => void) | undefined;
+
+  try {
+    const deadline = new Promise<never>((_, reject) => {
+      const rejectOnce = (error: Error) => {
+        if (!controller.signal.aborted) controller.abort(error);
+        reject(error);
+      };
+
+      timeoutId = setTimeout(
+        () => rejectOnce(new Error("GitHub clone timed out")),
+        timeoutMs,
+      );
+      timeoutId.unref?.();
+
+      abortHandler = () => rejectOnce(new Error("GitHub clone aborted"));
+      signal.addEventListener("abort", abortHandler, { once: true });
+    });
+
+    await Promise.race([
+      cloneRepo(cloneUrl, cloneDir, controller.signal, timeoutMs),
+      deadline,
+    ]);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    if (abortHandler) signal.removeEventListener("abort", abortHandler);
+  }
+}
+
 function walkDirectory(dir: string, base: string): { path: string; type: string }[] {
   const entries: { path: string; type: string }[] = [];
   for (const name of readdirSync(dir)) {
@@ -208,6 +307,8 @@ export async function fetchGitHubContent(
     apiBase = "https://api.github.com",
     rawBase = "https://raw.githubusercontent.com",
     sizeThresholdMb = SIZE_THRESHOLD_MB,
+    cloneTimeoutMs = DEFAULT_CLONE_TIMEOUT_MS,
+    cloneRepo = cloneRepository,
     getToken = getGhToken,
   } = options;
 
@@ -283,30 +384,18 @@ export async function fetchGitHubContent(
   const sizeMb = (repoData.size ?? 0) / 1024; // GitHub API returns size in KB
   const defaultBranch = repoData.default_branch ?? "main";
 
-  let allEntries: { path: string; type: string }[];
-  let readme = "";
-  let rootSource: "github-clone" | "github-api";
-
-  if (sizeMb <= sizeThresholdMb) {
-    rootSource = "github-clone";
-    const cacheKey = `${descriptor.owner}/${descriptor.repo}`;
-    let cloneDir = cloneCache.get(cacheKey);
-    if (!cloneDir) {
-      cloneDir = mkdtempSync(join(tmpdir(), "pi-github-cache-"));
-      const cloneUrl = `https://github.com/${descriptor.owner}/${descriptor.repo}.git`;
-      execFileSync("git", ["clone", "--depth", "1", cloneUrl, cloneDir], { stdio: "ignore" });
-      cloneCache.set(cacheKey, cloneDir);
-    }
-    allEntries = walkDirectory(cloneDir, cloneDir).filter((e) => !e.path.startsWith(".git"));
-    readme = readReadme(cloneDir, allEntries);
-  } else {
-    rootSource = "github-api";
+  async function fetchRootViaApi(): Promise<{
+    allEntries: { path: string; type: string }[];
+    readme: string;
+    rootSource: "github-api";
+  }> {
     const treeApiUrl = `${apiBase}/repos/${descriptor.owner}/${descriptor.repo}/git/trees/${defaultBranch}?recursive=1`;
     const treeResp = await fetchWithPrivateFallback(treeApiUrl);
     if (!treeResp.ok) throw new Error(`Failed to fetch tree: HTTP ${treeResp.status}`);
 
     const treeData = await treeResp.json() as { tree?: { path: string; type: string }[] };
-    allEntries = treeData.tree ?? [];
+    const allEntries = treeData.tree ?? [];
+    let readme = "";
 
     const readmeEntry = allEntries.find(
       (e) => e.type === "blob" && /^readme(\.(md|txt|rst))?$/i.test(e.path),
@@ -323,7 +412,42 @@ export async function fetchGitHubContent(
         // README fetch is best-effort — proceed without it
       }
     }
+
+    return { allEntries, readme, rootSource: "github-api" };
   }
+
+  let rootData: {
+    allEntries: { path: string; type: string }[];
+    readme: string;
+    rootSource: "github-clone" | "github-api";
+  };
+
+  if (sizeMb <= sizeThresholdMb) {
+    const cacheKey = `${descriptor.owner}/${descriptor.repo}`;
+    let cloneDir = cloneCache.get(cacheKey);
+    try {
+      if (!cloneDir) {
+        cloneDir = mkdtempSync(join(tmpdir(), "pi-github-cache-"));
+        const cloneUrl = `https://github.com/${descriptor.owner}/${descriptor.repo}.git`;
+        await runCloneWithDeadline(cloneRepo, cloneUrl, cloneDir, effectiveSignal, cloneTimeoutMs);
+        cloneCache.set(cacheKey, cloneDir);
+      }
+      const allEntries = walkDirectory(cloneDir, cloneDir).filter((e) => !e.path.startsWith(".git"));
+      rootData = {
+        allEntries,
+        readme: readReadme(cloneDir, allEntries),
+        rootSource: "github-clone",
+      };
+    } catch (error) {
+      if (cloneDir && !cloneCache.has(cacheKey)) rmSync(cloneDir, { recursive: true, force: true });
+      if (error instanceof Error && error.message === "GitHub clone aborted") throw error;
+      rootData = await fetchRootViaApi();
+    }
+  } else {
+    rootData = await fetchRootViaApi();
+  }
+
+  const { allEntries, readme, rootSource } = rootData;
 
   const halfBudget = Math.floor(maxTokens / 2);
   const treeText = formatFileTree(allEntries, halfBudget);

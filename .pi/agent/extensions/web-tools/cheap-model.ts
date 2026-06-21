@@ -82,6 +82,8 @@ type CompleteFn = (
   options?: ProviderStreamOptions,
 ) => Promise<AssistantMessage>;
 
+export const DEFAULT_CHEAP_MODEL_SUMMARY_TIMEOUT_MS = 20_000;
+
 const SUMMARIZE_SYSTEM_PROMPT =
   "You are a precise content summarizer for an AI coding assistant. " +
   "Extract and summarize only information relevant to the user's query. " +
@@ -94,27 +96,56 @@ export async function summarizeContent(
   query: string,
   signal?: AbortSignal,
   completeFn: CompleteFn = complete,
+  timeoutMs = DEFAULT_CHEAP_MODEL_SUMMARY_TIMEOUT_MS,
 ): Promise<string | null> {
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let abortHandler: (() => void) | undefined;
+
   try {
-    const result = await completeFn(
-      resolved.model,
-      {
-        systemPrompt: SUMMARIZE_SYSTEM_PROMPT,
-        messages: [
-          {
-            role: "user",
-            content: `Query: ${query}\n\nPage content:\n${content}`,
-            timestamp: Date.now(),
-          },
-        ],
-      },
-      {
-        apiKey: resolved.apiKey,
-        headers: resolved.headers,
-        maxTokens: 2000,
-        signal,
-      },
-    );
+    const deadline = new Promise<never>((_, reject) => {
+      const rejectOnce = (error: Error) => {
+        if (!controller.signal.aborted) controller.abort(error);
+        reject(error);
+      };
+
+      timeoutId = setTimeout(
+        () => rejectOnce(new Error("cheap model summary timed out")),
+        timeoutMs,
+      );
+      timeoutId.unref?.();
+
+      if (signal?.aborted) {
+        rejectOnce(new Error("cheap model summary aborted"));
+        return;
+      }
+
+      abortHandler = () => rejectOnce(new Error("cheap model summary aborted"));
+      signal?.addEventListener("abort", abortHandler, { once: true });
+    });
+
+    const result = await Promise.race([
+      completeFn(
+        resolved.model,
+        {
+          systemPrompt: SUMMARIZE_SYSTEM_PROMPT,
+          messages: [
+            {
+              role: "user",
+              content: `Query: ${query}\n\nPage content:\n${content}`,
+              timestamp: Date.now(),
+            },
+          ],
+        },
+        {
+          apiKey: resolved.apiKey,
+          headers: resolved.headers,
+          maxTokens: 2000,
+          signal: controller.signal,
+        },
+      ),
+      deadline,
+    ]);
 
     if (result.stopReason === "error" || result.stopReason === "aborted") return null;
 
@@ -129,5 +160,8 @@ export async function summarizeContent(
     return `[Content summarised by ${resolved.provider}/${resolved.id} — this is a summary, not verbatim page text]\n\n${text}`;
   } catch {
     return null;
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    if (abortHandler) signal?.removeEventListener("abort", abortHandler);
   }
 }

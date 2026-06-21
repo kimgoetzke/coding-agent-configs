@@ -20,6 +20,7 @@ type TestState = {
   extractCalls: Array<{ url: string; maxTokens: number; query: string | undefined }>;
   browserResult: ExtractedResult | null;
   browserCalls: Array<{ url: string; maxTokens: number; query: string | undefined }>;
+  likelyJSRendered: boolean;
   parseGitHubResult: unknown;
   githubResult: ExtractedResult | null;
   githubCalls: Array<{ descriptor: unknown; maxTokens: number }>;
@@ -29,6 +30,7 @@ type TestState = {
   resolveCheapModelCalls: number;
   summaryText: string | null;
   summarizeCalls: Array<{ resolved: unknown; content: string; query: string }>;
+  searchError: Error | null;
 };
 
 function makeExtractedResult(overrides: Partial<ExtractedResult> = {}): ExtractedResult {
@@ -51,6 +53,7 @@ function resetState(overrides: Partial<TestState> = {}): TestState {
     extractCalls: [],
     browserResult: null,
     browserCalls: [],
+    likelyJSRendered: false,
     parseGitHubResult: null,
     githubResult: null,
     githubCalls: [],
@@ -60,6 +63,7 @@ function resetState(overrides: Partial<TestState> = {}): TestState {
     resolveCheapModelCalls: 0,
     summaryText: null,
     summarizeCalls: [],
+    searchError: null,
     ...overrides,
   };
   (globalThis as typeof globalThis & { __WEB_TOOLS_TEST_STATE?: TestState }).__WEB_TOOLS_TEST_STATE =
@@ -141,7 +145,7 @@ const stubSources = new Map<string, string>([
       function state() { return globalThis.__WEB_TOOLS_TEST_STATE; }
       export const DEFAULT_MAX_TOKENS = 8000;
       export const MAX_TOKENS_CAP = 16000;
-      export function isLikelyJSRendered() { return false; }
+      export function isLikelyJSRendered() { return state().likelyJSRendered; }
       export async function extractContent(url, maxTokens, _signal, query) {
         state().extractCalls.push({ url, maxTokens, query });
         return { ...state().extractResult, url };
@@ -171,7 +175,9 @@ const stubSources = new Map<string, string>([
   [
     "web-tools-test:./search-providers.js",
     `
+      function state() { return globalThis.__WEB_TOOLS_TEST_STATE; }
       export async function search(query, maxResults) {
+        if (state().searchError) throw state().searchError;
         return {
           results: [],
           provider: "mock",
@@ -247,7 +253,7 @@ type RegisteredTool = {
     toolCallId: string,
     params: Record<string, unknown>,
     signal: AbortSignal | undefined,
-    onUpdate: unknown,
+    onUpdate: ((update: { content: Array<{ type: string; text: string }> }) => void) | undefined,
     ctx: Record<string, unknown>,
   ) => Promise<{ content: Array<{ type: string; text: string }>; details?: Record<string, unknown> }>;
 };
@@ -300,6 +306,7 @@ test("web-tools registers fetch_content with the public mode parameter", () => {
 
   const fetchContent = pi.getTool("fetch_content");
   assert.match(fetchContent.description, /verbatim extracted content or a cheap-model summary/);
+  assert.match(fetchContent.description, /GitHub\/code URLs default to verbatim/);
 
   const parameters = fetchContent.parameters as { properties: Record<string, { anyOf?: Array<{ const: string }> }> };
   assert.ok(parameters.properties.mode, "mode parameter should be registered");
@@ -337,6 +344,75 @@ test("fetch_content auto mode returns verbatim content for docs-like URLs withou
   assert.equal(state.resolveCheapModelCalls, 0);
   assert.equal(state.summarizeCalls.length, 0);
   assert.deepEqual(state.extractCalls, [{ url, maxTokens: 16000, query: undefined }]);
+});
+
+test("fetch_content auto mode returns verbatim GitHub content without resolving a summary model", async () => {
+  const url = "https://github.com/example/repo";
+  const descriptor = { owner: "example", repo: "repo", type: "root" };
+  const state = resetState({
+    parseGitHubResult: descriptor,
+    githubResult: makeExtractedResult({
+      url,
+      content: "# File Tree\n\nREADME.md\n\n# README\n\nRepo readme",
+      source: "github-api",
+    }),
+    resolvedCheapModel: { provider: "mock", id: "mini" },
+    summaryText: "Summary that should not be used",
+  });
+
+  const pi = createPiHarness();
+  registerWebTools(pi as never);
+  await pi.emit("before_agent_start", { prompt: `Fetch ${url}` });
+
+  const result = await pi.getTool("fetch_content").execute(
+    "tool-call-github-auto",
+    { url },
+    undefined,
+    undefined,
+    makeContext(),
+  );
+
+  assert.match(result.content[0]?.text ?? "", /# File Tree/);
+  assert.equal(result.details?.responseMode, "verbatim");
+  assert.equal(result.details?.cheapModel, "n/a - verbatim mode");
+  assert.deepEqual(state.githubCalls, [{ descriptor, maxTokens: 16000 }]);
+  assert.equal(state.resolveCheapModelCalls, 0);
+  assert.equal(state.summarizeCalls.length, 0);
+});
+
+test("fetch_content explicit summary mode returns cheap-model output for GitHub content", async () => {
+  const url = "https://github.com/example/repo";
+  const descriptor = { owner: "example", repo: "repo", type: "root" };
+  const state = resetState({
+    parseGitHubResult: descriptor,
+    githubResult: makeExtractedResult({ url, content: "GitHub README content", source: "github-api" }),
+    resolvedCheapModel: { provider: "mock", id: "mini" },
+    summaryText: "GitHub repo summary",
+  });
+
+  const pi = createPiHarness();
+  registerWebTools(pi as never);
+  await pi.emit("before_agent_start", { prompt: `Summarise ${url}` });
+
+  const result = await pi.getTool("fetch_content").execute(
+    "tool-call-github-summary",
+    { url, mode: "summary" },
+    undefined,
+    undefined,
+    makeContext(),
+  );
+
+  assert.equal(result.content[0]?.text, "GitHub repo summary");
+  assert.equal(result.details?.responseMode, "summary");
+  assert.equal(result.details?.requestedMode, "summary");
+  assert.equal(result.details?.cheapModel, "mock/mini (active)");
+  assert.deepEqual(state.summarizeCalls, [
+    {
+      resolved: { provider: "mock", id: "mini" },
+      content: "GitHub README content",
+      query: `Summarise ${url}`,
+    },
+  ]);
 });
 
 test("fetch_content summary mode returns cheap-model output through the registered tool", async () => {
@@ -407,4 +483,70 @@ test("fetch_content summary mode falls back to verbatim extracted content when n
   assert.equal(state.resolveCheapModelCalls, 1);
   assert.deepEqual(state.extractCalls, [{ url, maxTokens: 8000, query: prompt }]);
   assert.deepEqual(state.summarizeCalls, []);
+});
+
+test("fetch_content reports progress through extraction, browser fallback, and summarisation", async () => {
+  const url = "https://example.com/app";
+  resetState({
+    extractResult: makeExtractedResult({ url, content: "Static shell", rawHtml: "<main></main>" }),
+    browserResult: makeExtractedResult({ url, content: "Browser-rendered content", source: "browser-html" }),
+    likelyJSRendered: true,
+    resolvedCheapModel: { provider: "mock", id: "mini" },
+    summaryText: "Rendered summary",
+  });
+
+  const pi = createPiHarness();
+  registerWebTools(pi as never);
+  await pi.emit("before_agent_start", { prompt: `Summarise ${url}` });
+
+  const updates: string[] = [];
+  const result = await pi.getTool("fetch_content").execute(
+    "tool-call-progress",
+    { url, mode: "summary" },
+    undefined,
+    (update) => updates.push(update.content[0]?.text ?? ""),
+    makeContext(),
+  );
+
+  assert.equal(result.content[0]?.text, "Rendered summary");
+  assert.deepEqual(updates, [
+    "fetch_content: checking URL approval",
+    "fetch_content: approved; mode summary",
+    "fetch_content: extracting page content",
+    "fetch_content: retrying with browser rendering",
+    "fetch_content: summarising extracted content",
+  ]);
+});
+
+test("fetch_content rejects blocked URLs instead of returning an isError payload", async () => {
+  const pi = createPiHarness();
+  registerWebTools(pi as never);
+
+  await assert.rejects(
+    () => pi.getTool("fetch_content").execute(
+      "tool-call-blocked",
+      { url: "https://blocked.example/page" },
+      undefined,
+      undefined,
+      makeContext(),
+    ),
+    /fetch_content blocked: "https:\/\/blocked\.example\/page" is not in the approved URL list/,
+  );
+});
+
+test("web_search rejects provider failures instead of returning an isError payload", async () => {
+  resetState({ searchError: new Error("search backend down") });
+  const pi = createPiHarness();
+  registerWebTools(pi as never);
+
+  await assert.rejects(
+    () => pi.getTool("web_search").execute(
+      "tool-call-search",
+      { query: "pi docs" },
+      undefined,
+      undefined,
+      makeContext(),
+    ),
+    /web_search failed: search backend down/,
+  );
 });

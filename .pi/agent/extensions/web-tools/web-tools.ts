@@ -120,7 +120,7 @@ const FetchContentParams = Type.Object({
       Type.Literal("summary"),
     ], {
       description:
-        "Content fidelity mode: auto uses conservative URL rules, verbatim bypasses summaries, summary prefers cheap-model summarisation",
+        "Content fidelity mode: auto uses conservative URL rules; GitHub/code URLs default to verbatim, while explicit summary requests are honoured",
     }),
   ),
 });
@@ -134,6 +134,15 @@ function describeCheapModelUsage(
   if (resolvedModel === null) return "n/a - failed to resolve cheap model";
   if (summaryText !== null) return `${resolvedModel.provider}/${resolvedModel.id} (active)`;
   return `${resolvedModel.provider}/${resolvedModel.id} (failed)`;
+}
+
+function reportProgress(
+  onUpdate: unknown,
+  text: string,
+  details?: Record<string, unknown>,
+): void {
+  if (typeof onUpdate !== "function") return;
+  onUpdate({ content: [{ type: "text", text }], details });
 }
 
 function formatSearchResults(
@@ -220,10 +229,7 @@ export default function (pi: ExtensionAPI) {
         }));
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: "text", text: `web_search failed: ${message}` }],
-          isError: true,
-        };
+        throw new Error(`web_search failed: ${message}`);
       }
 
       addUrls(results.map((r) => r.url));
@@ -328,25 +334,19 @@ export default function (pi: ExtensionAPI) {
       "Preferred way to retrieve web pages — use this instead of curl or bash for any URL fetch.",
       "Only URLs from a prior web_search result or URLs the user typed explicitly are permitted.",
       "Returns verbatim extracted content or a cheap-model summary depending on mode and URL.",
+      "GitHub/code URLs default to verbatim file tree/README or raw content; explicit mode=summary is honoured.",
     ].join(" "),
     parameters: FetchContentParams,
 
-    async execute(_toolCallId, params, signal, _onUpdate, ctx) {
+    async execute(_toolCallId, params, signal, onUpdate, ctx) {
+      reportProgress(onUpdate, "fetch_content: checking URL approval");
       if (!isAllowed(params.url)) {
         const allowed = getAllowed();
         const hint =
           allowed.length === 0
             ? "No URLs are currently approved. Run web_search first."
             : `Approved URLs (${allowed.length}): ${allowed.slice(0, 5).join(", ")}${allowed.length > 5 ? ` … +${allowed.length - 5} more` : ""}`;
-        return {
-          content: [
-            {
-              type: "text",
-              text: `fetch_content blocked: "${params.url}" is not in the approved URL list. ${hint}`,
-            },
-          ],
-          isError: true,
-        };
+        throw new Error(`fetch_content blocked: "${params.url}" is not in the approved URL list. ${hint}`);
       }
 
       const requestedMode = params.mode ?? "auto";
@@ -366,6 +366,12 @@ export default function (pi: ExtensionAPI) {
       const effectiveQuery = params.query ?? lastAgentPrompt;
       const detailQuery = modeDecision.effectiveMode === "summary" ? effectiveQuery || null : null;
 
+      reportProgress(onUpdate, `fetch_content: approved; mode ${modeDecision.effectiveMode}`, {
+        requestedMode,
+        effectiveMode: modeDecision.effectiveMode,
+        reason: modeDecision.reason,
+      });
+
       let summaryModel: ResolvedModel | null = null;
       if (modeDecision.effectiveMode === "summary") {
         if (resolvedCheapModel === undefined) {
@@ -382,10 +388,12 @@ export default function (pi: ExtensionAPI) {
       try {
         const githubDescriptor = parseGitHubUrl(params.url);
         if (githubDescriptor) {
+          reportProgress(onUpdate, "fetch_content: fetching GitHub content");
           extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
             fetchGitHubContent(githubDescriptor, maxTokens, signal ?? undefined),
           );
         } else {
+          reportProgress(onUpdate, "fetch_content: extracting page content");
           const staticResult = await FETCH_CONCURRENCY_LIMITER.run(() =>
             extractContent(params.url, maxTokens, signal ?? undefined, extractionQuery),
           );
@@ -395,6 +403,7 @@ export default function (pi: ExtensionAPI) {
             isLikelyJSRendered(staticResult.content, staticResult.rawHtml ?? "")
           ) {
             browserAttempted = true;
+            reportProgress(onUpdate, "fetch_content: retrying with browser rendering");
             extracted = await FETCH_CONCURRENCY_LIMITER.run(() =>
               fetchWithBrowser(params.url, maxTokens, signal ?? undefined, extractionQuery),
             );
@@ -404,10 +413,7 @@ export default function (pi: ExtensionAPI) {
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: "text", text: `fetch_content failed: ${message}` }],
-          isError: true,
-        };
+        throw new Error(`fetch_content failed: ${message}`);
       }
       const model = ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : "unknown";
       if (extracted.statusCode !== undefined && extracted.statusCode >= 400) {
@@ -425,7 +431,6 @@ export default function (pi: ExtensionAPI) {
               text: `fetch_content: HTTP ${extracted.statusCode}.${titleInfo}${hint}`,
             },
           ],
-          isError: true,
           details: {
             url: extracted.url,
             title: extracted.title,
@@ -447,6 +452,9 @@ export default function (pi: ExtensionAPI) {
         };
       }
 
+      if (modeDecision.effectiveMode === "summary" && summaryModel !== null) {
+        reportProgress(onUpdate, "fetch_content: summarising extracted content");
+      }
       const summaryText =
         modeDecision.effectiveMode === "summary" && summaryModel !== null
           ? await summarizeContent(

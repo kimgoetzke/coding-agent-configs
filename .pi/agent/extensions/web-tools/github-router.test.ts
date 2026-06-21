@@ -187,6 +187,77 @@ test("fetchGitHubContent returns file tree and README for root URL of large repo
   }
 });
 
+test("fetchGitHubContent falls back to API tree when root clone fails", async () => {
+  const repoMeta = JSON.stringify({ size: 10, default_branch: "main" });
+  const treeResponse = JSON.stringify({
+    tree: [
+      { path: "src/index.ts", type: "blob" },
+      { path: "README.md", type: "blob" },
+    ],
+  });
+  const readmeContent = "# Fallback README";
+
+  const { url: serverBase, close } = await startServer((req, res) => {
+    if (req.url?.includes("/git/trees/")) {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(treeResponse);
+    } else if (req.url?.includes("README.md")) {
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end(readmeContent);
+    } else {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(repoMeta);
+    }
+  });
+
+  try {
+    const descriptor = parseGitHubUrl("https://github.com/owner/repo")!;
+    const result = await fetchGitHubContent(descriptor, 8000, undefined, {
+      apiBase: serverBase,
+      rawBase: serverBase,
+      cloneRepo: async () => {
+        throw new Error("GitHub clone timed out");
+      },
+    });
+
+    assert.equal(result.source, "github-api");
+    assert.ok(result.content.includes("index.ts"), "fallback file tree missing");
+    assert.ok(result.content.includes("Fallback README"), "fallback README missing");
+  } finally {
+    close();
+  }
+});
+
+test("fetchGitHubContent aborts root clone without falling back", async () => {
+  const repoMeta = JSON.stringify({ size: 10, default_branch: "main" });
+  let treeRequested = false;
+
+  const { url: serverBase, close } = await startServer((req, res) => {
+    if (req.url?.includes("/git/trees/")) treeRequested = true;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(repoMeta);
+  });
+
+  try {
+    const descriptor = parseGitHubUrl("https://github.com/owner/repo")!;
+    const startedAt = Date.now();
+
+    await assert.rejects(
+      () => fetchGitHubContent(descriptor, 8000, AbortSignal.timeout(20), {
+        apiBase: serverBase,
+        rawBase: serverBase,
+        cloneRepo: async () => new Promise<never>(() => {}),
+      }),
+      (err: Error) => err.message === "GitHub clone aborted",
+    );
+
+    assert.ok(Date.now() - startedAt < 500);
+    assert.equal(treeRequested, false);
+  } finally {
+    close();
+  }
+});
+
 // ── fetchGitHubContent: private repo error ─────────────────────────────────────
 
 test("fetchGitHubContent throws helpful error when repo is private and gh unavailable", async () => {
