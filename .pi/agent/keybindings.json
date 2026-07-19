@@ -1,3 +1,4 @@
 {
-  "app.clipboard.pasteImage": ["alt+v"]
+  "app.clipboard.pasteImage": ["alt+v"],
+  "tui.input.newLine": ["shift+enter", "ctrl+j"]
 }
