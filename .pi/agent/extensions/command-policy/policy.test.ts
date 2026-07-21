@@ -55,6 +55,12 @@ describe("collectAtomicCommands", () => {
     expect(collectAtomicCommands("echo ok ; rm -rf tmp | cat")).toEqual(["echo ok", "rm -rf tmp", "cat"]);
     expect(collectAtomicCommands("echo $(rm -rf /)")).toEqual(["echo $(rm -rf /)", "rm -rf /"]);
   });
+
+  it("preserves output redirections for policy matching", () => {
+    expect(collectAtomicCommands("rg foo 2>NUL")).toEqual(["rg foo > NUL"]);
+    expect(collectAtomicCommands("rg foo 2>>NUL")).toEqual(["rg foo >> NUL"]);
+    expect(collectAtomicCommands("rg foo 2>/dev/null")).toEqual(["rg foo > /dev/null"]);
+  });
 });
 
 describe("loadPolicyForCwd", () => {

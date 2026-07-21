@@ -12,7 +12,7 @@ export const POLICY_VERSION = 1;
 export const PROJECT_POLICY_PATH = ".pi/command-policy.json5";
 
 export function getGlobalPolicyPath(): string {
-  return resolve(homedir(), ".pi/agent/command-policy.json5");
+  return resolve(process.env.HOME ?? homedir(), ".pi/agent/command-policy.json5");
 }
 
 export type RuleInput = string | { match: string; note?: string };
@@ -448,8 +448,15 @@ function extractPart(input: Record<string, unknown>): string[] {
     return [input.text];
   }
 
-  if (typeof input.op === "string" && input.file && typeof (input.file as { text?: unknown }).text === "string") {
-    return [input.op, (input.file as { text: string }).text];
+  const operator =
+    typeof input.op === "string"
+      ? input.op
+      : input.op && typeof input.op === "object" && typeof (input.op as { text?: unknown }).text === "string"
+        ? (input.op as { text: string }).text
+        : undefined;
+
+  if (operator && input.file && typeof (input.file as { text?: unknown }).text === "string") {
+    return [operator, (input.file as { text: string }).text];
   }
 
   return [];
