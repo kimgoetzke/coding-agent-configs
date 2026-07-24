@@ -11,9 +11,9 @@
     "test": "nix shell nixpkgs#nodejs --command node --experimental-strip-types --test --test-force-exit *.test.ts"
   },
   "dependencies": {
-    "@earendil-works/pi-ai": "^0.75.0",
+    "@earendil-works/pi-ai": "^0.80.10",
     "@mozilla/readability": "^0.6.0",
-    "linkedom": "^0.18.0",
-    "playwright": "^1.52.0"
+    "linkedom": "^0.18.13",
+    "playwright": "^1.61.1"
   }
 }
