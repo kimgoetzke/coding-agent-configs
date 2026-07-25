@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { CONFIG_DIR_NAME, getAgentDir, parseFrontmatter } from "@earendil-works/pi-coding-agent";
 import { discoverAgentsFromRoots, formatAgentList as formatAgentListFromRoots } from "./agent-discovery.js";
 
 export type AgentScope = "user" | "project" | "both";
@@ -21,7 +21,13 @@ export interface AgentDiscoveryResult {
 
 export function discoverAgents(cwd: string, scope: AgentScope): AgentDiscoveryResult {
 	const userAgentsDir = path.join(getAgentDir(), "agents");
-	return discoverAgentsFromRoots({ cwd, scope, userAgentsDir }) as AgentDiscoveryResult;
+	return discoverAgentsFromRoots({
+		cwd,
+		scope,
+		userAgentsDir,
+		configDirName: CONFIG_DIR_NAME,
+		parseFrontmatter: (content: string) => parseFrontmatter<Record<string, string>>(content),
+	}) as AgentDiscoveryResult;
 }
 
 export function formatAgentList(agents: AgentConfig[], maxItems: number): { text: string; remaining: number } {

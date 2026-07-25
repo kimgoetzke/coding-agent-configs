@@ -19,22 +19,29 @@ The extension package is named `subagent-support` for clarity and to distinguish
 - No symlink-based setup instructions
 - No bundled sample agents in `agents/*.md`
 - No bundled prompt templates in `prompts/*.md`
-- Added `agent-discovery.js` as a small testable helper for agent loading logic
+- Added `agent-discovery.js` as a testable helper for agent loading and scope logic; runtime frontmatter parsing delegates to Pi's YAML parser
 - Added `model-resolution.js` so agent model aliases are resolved against authenticated providers before spawning subagents
+- Added `subagent-result.js` for tested failure classification, diagnostics, and 50 KiB parallel-output truncation
+- Added `subagent-process.js` so `agent_settled` completes children even when another extension leaves long-lived resources open
+- Synced upstream parallel result output, failure diagnostics, failure-aware status rendering, dynamic config paths, and current imports
 - Added local tests and package metadata for this repo-managed extension copy
 
 ## File-by-file summary
 
 | File                      | Status                    | Notes                                                                                                   |
 | ------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `subagent-support.ts`     | Copied, lightly annotated | Upstream subprocess execution and `subagent` tool behavior retained; primary runtime entrypoint.        |
-| `agents.ts`               | Customised                | Keeps the upstream export shape, but delegates discovery to a testable helper and Pi's `getAgentDir()`. |
-| `agent-discovery.js`      | New                       | Pure filesystem helper used to test and preserve project/user agent discovery behavior.                 |
-| `model-resolution.js`     | New                       | Resolves agent model aliases only against authenticated providers, with fallback to Pi defaults.        |
-| `agent-discovery.test.js` | New                       | Covers copy-based packaging expectations and external agent discovery behavior.                         |
-| `model-resolution.test.js`| New                       | Covers authenticated-provider-first model alias resolution and fallback behavior.                        |
-| `package.json`            | New                       | Declares the descriptive runtime entrypoint and a Nix-backed test script.                               |
-| `README.md`               | Customised                | Documents copy installation, omissions, and this repo's customisation choices.                          |
+| `subagent-support.ts`      | Copied, customised | Upstream subprocess execution, current result handling, and `subagent` tool behaviour; retains authenticated model resolution. |
+| `agents.ts`                | Customised         | Delegates scope/filesystem discovery to a testable helper and frontmatter parsing to Pi's YAML parser.                         |
+| `agent-discovery.js`       | New                | Filesystem helper for user/project discovery, configurable config directories, and parser injection.                          |
+| `subagent-result.js`       | New                | Failure classification, diagnostic selection, and 50 KiB parallel-output truncation.                                         |
+| `subagent-process.js`      | New                | Completes and terminates settled child processes without waiting on leaked event-loop resources.                              |
+| `model-resolution.js`      | New                | Resolves agent model aliases only against authenticated providers, with fallback to Pi defaults.                              |
+| `agent-discovery.test.js`  | New                | Covers packaging, CRLF, parser delegation, configurable paths, and discovery behaviour.                                      |
+| `subagent-result.test.js`  | New                | Covers subprocess failures, stop reasons, diagnostics, and output truncation.                                                 |
+| `subagent-process.test.js` | New                | Covers settled children whose event loops remain busy.                                                                        |
+| `model-resolution.test.js` | New                | Covers authenticated-provider-first model alias resolution and fallback behaviour.                                           |
+| `package.json`             | New                | Declares the descriptive runtime entrypoint and a Nix-backed test script.                                                     |
+| `README.md`                | Customised         | Documents copy installation, omissions, and this repo's customisation choices.                                                |
 
 ## Agent locations
 
@@ -67,5 +74,5 @@ Then reload Pi:
 Run from this directory:
 
 ```bash
-nix shell nixpkgs#nodejs --command node --test *.test.js
+npm test
 ```

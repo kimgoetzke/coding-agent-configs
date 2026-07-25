@@ -46,6 +46,18 @@ test("findNearestProjectAgentsDir walks upward to the closest .pi/agents directo
   assert.equal(findNearestProjectAgentsDir(nestedCwd), projectAgentsDir);
 });
 
+test("findNearestProjectAgentsDir supports Pi's configured directory name", () => {
+  const workspace = mkdtempSync(join(tmpdir(), "subagent-support-config-name-"));
+  const repoRoot = join(workspace, "repo");
+  const nestedCwd = join(repoRoot, "src");
+  const projectAgentsDir = join(repoRoot, ".custom-pi", "agents");
+
+  mkdirSync(nestedCwd, { recursive: true });
+  mkdirSync(projectAgentsDir, { recursive: true });
+
+  assert.equal(findNearestProjectAgentsDir(nestedCwd, ".custom-pi"), projectAgentsDir);
+});
+
 test("loadAgentsFromDir ignores markdown files that omit required agent metadata", () => {
   const workspace = mkdtempSync(join(tmpdir(), "subagent-support-invalid-"));
   const dir = join(workspace, "agents");
@@ -57,6 +69,42 @@ test("loadAgentsFromDir ignores markdown files that omit required agent metadata
 
   assert.equal(agents.length, 1);
   assert.equal(agents[0].name, "worker");
+});
+
+test("loadAgentsFromDir discovers agents whose frontmatter uses CRLF line endings", () => {
+  const workspace = mkdtempSync(join(tmpdir(), "subagent-support-crlf-"));
+  const dir = join(workspace, "agents");
+
+  writeAgent(
+    dir,
+    "windows-agent.md",
+    "---\r\nname: windows-agent\r\ndescription: CRLF agent\r\ntools: read, grep\r\n---\r\nPrompt\r\n",
+  );
+
+  const agents = loadAgentsFromDir(dir, "user");
+
+  assert.equal(agents.length, 1);
+  assert.equal(agents[0].name, "windows-agent");
+});
+
+test("discoverAgentsFromRoots uses the supplied frontmatter parser", () => {
+  const workspace = mkdtempSync(join(tmpdir(), "subagent-support-parser-"));
+  const userAgentsDir = join(workspace, "agents");
+  writeAgent(userAgentsDir, "agent.md", "custom format");
+
+  const result = discoverAgentsFromRoots({
+    cwd: workspace,
+    scope: "user",
+    userAgentsDir,
+    parseFrontmatter: () => ({
+      frontmatter: { name: "parsed-agent", description: "Parsed externally" },
+      body: "External parser prompt",
+    }),
+  });
+
+  assert.equal(result.agents.length, 1);
+  assert.equal(result.agents[0].name, "parsed-agent");
+  assert.equal(result.agents[0].systemPrompt, "External parser prompt");
 });
 
 test("discoverAgentsFromRoots lets the nearest project agent override a user agent with the same name when scope is both", () => {

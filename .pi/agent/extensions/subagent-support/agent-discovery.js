@@ -16,18 +16,20 @@ import * as path from "node:path";
  * }} AgentConfig
  */
 
-function parseFrontmatter(content) {
-  if (!content.startsWith("---\n")) {
-    return { frontmatter: {}, body: content };
+function parseSimpleFrontmatter(content) {
+  const normalizedContent = content.replace(/\r\n?/g, "\n");
+
+  if (!normalizedContent.startsWith("---\n")) {
+    return { frontmatter: {}, body: normalizedContent };
   }
 
-  const closingIndex = content.indexOf("\n---\n", 4);
+  const closingIndex = normalizedContent.indexOf("\n---\n", 4);
   if (closingIndex === -1) {
-    return { frontmatter: {}, body: content };
+    return { frontmatter: {}, body: normalizedContent };
   }
 
-  const rawFrontmatter = content.slice(4, closingIndex);
-  const body = content.slice(closingIndex + 5);
+  const rawFrontmatter = normalizedContent.slice(4, closingIndex);
+  const body = normalizedContent.slice(closingIndex + 5);
   /** @type {Record<string, string>} */
   const frontmatter = {};
 
@@ -67,7 +69,7 @@ function parseTools(rawTools) {
  * @param {AgentSource} source
  * @returns {AgentConfig[]}
  */
-export function loadAgentsFromDir(dir, source) {
+export function loadAgentsFromDir(dir, source, parseFrontmatter = parseSimpleFrontmatter) {
   if (!fs.existsSync(dir)) return [];
 
   /** @type {fs.Dirent[]} */
@@ -122,11 +124,11 @@ function isDirectory(candidatePath) {
  * @param {string} cwd
  * @returns {string | null}
  */
-export function findNearestProjectAgentsDir(cwd) {
+export function findNearestProjectAgentsDir(cwd, configDirName = ".pi") {
   let currentDir = cwd;
 
   while (true) {
-    const candidate = path.join(currentDir, ".pi", "agents");
+    const candidate = path.join(currentDir, configDirName, "agents");
     if (isDirectory(candidate)) return candidate;
 
     const parentDir = path.dirname(currentDir);
@@ -139,9 +141,19 @@ export function findNearestProjectAgentsDir(cwd) {
  * @param {{ cwd: string, scope: AgentScope, userAgentsDir: string, projectAgentsDir?: string | null }} options
  * @returns {{ agents: AgentConfig[], projectAgentsDir: string | null }}
  */
-export function discoverAgentsFromRoots({ cwd, scope, userAgentsDir, projectAgentsDir = findNearestProjectAgentsDir(cwd) }) {
-  const userAgents = scope === "project" ? [] : loadAgentsFromDir(userAgentsDir, "user");
-  const projectAgents = scope === "user" || !projectAgentsDir ? [] : loadAgentsFromDir(projectAgentsDir, "project");
+export function discoverAgentsFromRoots({
+  cwd,
+  scope,
+  userAgentsDir,
+  configDirName = ".pi",
+  projectAgentsDir = findNearestProjectAgentsDir(cwd, configDirName),
+  parseFrontmatter = parseSimpleFrontmatter,
+}) {
+  const userAgents = scope === "project" ? [] : loadAgentsFromDir(userAgentsDir, "user", parseFrontmatter);
+  const projectAgents =
+    scope === "user" || !projectAgentsDir
+      ? []
+      : loadAgentsFromDir(projectAgentsDir, "project", parseFrontmatter);
 
   /** @type {Map<string, AgentConfig>} */
   const agentMap = new Map();

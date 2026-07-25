@@ -8,6 +8,6 @@
     ]
   },
   "scripts": {
-    "test": "nix shell nixpkgs#nodejs --command node --test *.test.js"
+    "test": "node --test *.test.js"
   }
 }
