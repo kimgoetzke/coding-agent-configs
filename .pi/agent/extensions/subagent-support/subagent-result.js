@@ -1,5 +1,43 @@
+const TERMINAL_STATUSES = new Set(["settled", "failed", "aborted"]);
+
+export function isTerminalResult(result) {
+  if (result.status) return TERMINAL_STATUSES.has(result.status);
+  return typeof result.exitCode === "number" && result.exitCode !== -1;
+}
+
+export function countResultStatuses(results) {
+  const counts = {
+    queued: 0,
+    running: 0,
+    outputReceived: 0,
+    succeeded: 0,
+    failed: 0,
+    aborted: 0,
+    done: 0,
+    active: 0,
+  };
+
+  for (const result of results) {
+    if (result.status === "queued") counts.queued++;
+    else if (result.status === "running") counts.running++;
+    else if (result.status === "output_received") counts.outputReceived++;
+    else if (result.status === "settled") counts.succeeded++;
+    else if (result.status === "failed") counts.failed++;
+    else if (result.status === "aborted") counts.aborted++;
+    else if (!isTerminalResult(result)) counts.running++;
+    else if (result.stopReason === "aborted") counts.aborted++;
+    else if (isFailedResult(result)) counts.failed++;
+    else counts.succeeded++;
+  }
+  counts.done = counts.succeeded + counts.failed + counts.aborted;
+  counts.active = counts.queued + counts.running + counts.outputReceived;
+  return counts;
+}
+
 export function isFailedResult(result) {
-  return result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
+  if (result.status) return result.status === "failed" || result.status === "aborted";
+  if (result.stopReason === "error" || result.stopReason === "aborted") return true;
+  return typeof result.exitCode === "number" && result.exitCode !== -1 && result.exitCode !== 0;
 }
 
 export function getResultOutput(result, finalOutput) {

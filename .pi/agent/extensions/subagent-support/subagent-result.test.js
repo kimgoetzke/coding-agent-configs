@@ -1,7 +1,74 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { getResultOutput, isFailedResult, truncateParallelOutput } from "./subagent-result.js";
+import {
+  countResultStatuses,
+  getResultOutput,
+  isFailedResult,
+  isTerminalResult,
+  truncateParallelOutput,
+} from "./subagent-result.js";
+
+test("queued, running, and output-received children remain non-terminal", () => {
+  const results = [
+    { status: "queued", exitCode: null },
+    { status: "running", exitCode: null },
+    { status: "output_received", exitCode: null },
+  ];
+
+  assert.deepEqual(results.map(isTerminalResult), [false, false, false]);
+  assert.deepEqual(countResultStatuses(results), {
+    queued: 1,
+    running: 1,
+    outputReceived: 1,
+    succeeded: 0,
+    failed: 0,
+    aborted: 0,
+    done: 0,
+    active: 3,
+  });
+});
+
+test("settled, failed, and aborted statuses are terminal and authoritative", () => {
+  const results = [
+    { status: "settled", exitCode: 9, stopReason: "error" },
+    { status: "failed", exitCode: null },
+    { status: "aborted", exitCode: 0 },
+  ];
+
+  assert.deepEqual(results.map(isTerminalResult), [true, true, true]);
+  assert.deepEqual(results.map(isFailedResult), [false, true, true]);
+  assert.deepEqual(countResultStatuses(results), {
+    queued: 0,
+    running: 0,
+    outputReceived: 0,
+    succeeded: 1,
+    failed: 1,
+    aborted: 1,
+    done: 3,
+    active: 0,
+  });
+});
+
+test("legacy persisted results fall back to exit-code lifecycle semantics", () => {
+  const results = [
+    { exitCode: -1 },
+    { exitCode: 0, stopReason: "end" },
+    { exitCode: 1 },
+  ];
+
+  assert.deepEqual(results.map(isTerminalResult), [false, true, true]);
+  assert.deepEqual(countResultStatuses(results), {
+    queued: 0,
+    running: 1,
+    outputReceived: 0,
+    succeeded: 1,
+    failed: 1,
+    aborted: 0,
+    done: 2,
+    active: 1,
+  });
+});
 
 test("failed subagents expose stderr even when no assistant output was produced", () => {
   const result = {
