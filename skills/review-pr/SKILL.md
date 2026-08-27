@@ -91,6 +91,19 @@ Each sub-agent prompt should include:
 - The diff (or relevant portion)
 - Any applicable convention references (gathered above)
 - A reminder to return findings with file paths, line numbers, severity, and a recommended score with rationale
+- **The evidence rules below, quoted into the prompt.** They are the main defence against speculative findings, so do not paraphrase them away
+
+**Evidence rules for sub-agents** (include these verbatim in every sub-agent prompt):
+
+> Every finding you return MUST carry these three fields on top of the usual ones:
+>
+> - **Evidence:** the specific code you read that supports the claim, cited as `path:line` — including code outside the diff (callers, callees, config, existing tests). A diff hunk on its own is not evidence that a problem is real; it is only where you started looking.
+> - **Trigger:** the concrete input, state, or sequence that makes the problem actually happen, and the wrong outcome it produces. For example "a request with a null `tenantId` reaches `resolve()` and throws an NPE at line 88", not "this could fail if the input is unexpected".
+> - **Holds if:** each assumption you could not verify yourself, one bullet apiece, phrased so someone else can check it. Write "nothing — verified in this repo" when there are none.
+>
+> If you cannot write a specific **Trigger**, you do not have a finding — drop it. Do not report it with a caveat, a hedge, or a low confidence rating. "Might", "could potentially" and "in some cases" with no named case are all signs you are speculating.
+>
+> Never assume behaviour you have not read. If a claim depends on how a caller, a framework, a library, or a config behaves, go and read it. If you cannot read it (external service, runtime-only behaviour, another repository), that belongs in **Holds if:** — it does not silently become a fact.
 
 Treat every returned finding as an **unverified candidate**. The sub-agents are deliberately sensitive and over-report; you decide what is real in step 6.
 
@@ -101,13 +114,22 @@ The sub-agents over-report. Before anything reaches the review document, you (th
 For each candidate finding returned by the sub-agents:
 
 1. **Confirm it is true.** Open the referenced file and lines, read the surrounding context, and check the claim actually holds. Common failure modes to catch: the finding misreads the code, the "missing" handling already exists elsewhere, the concern is already covered by a test or a type, or the suggestion contradicts a project convention.
-2. **Decide its fate:**
+2. **Check the evidence fields.** A finding with no **Trigger**, or with a trigger too vague to reproduce, is speculation — discard it without further work. Do not repair it into a real finding on the sub-agent's behalf; if the concern is genuine you will be able to trace and state the trigger yourself, and then it is your finding, evidenced by your own reading.
+3. **Work through the "Holds if" bullets one by one.** Each is a claim you can go and check in the repository. Resolve every one you can:
+   - Assumption verified → strike it off.
+   - Assumption disproved → discard the finding, its premise is wrong.
+   - Assumption unverifiable from the code (depends on production data, an external service, another repository, or the author's intent) → it stays, and the finding becomes **conditional**.
+4. **Classify the finding:**
+   - **Confirmed** — you traced it in the actual code, and every assumption is resolved. It is stated as a fact.
+   - **Conditional** — the mechanism is real and evidenced, but at least one unverifiable assumption remains. It is stated as a question to the author, with the surviving assumptions listed, never as an assertion that the code is broken.
+5. **Decide its fate:**
    - **Discard** it if it is false, speculative, already handled, or a trivial nit that does not genuinely matter (be ruthless — most discarded findings will be low-severity ones).
+   - **Discard** a conditional finding whose assumption is far-fetched, or whose worst case is minor if it does turn out to hold. Conditional is not a licence to keep a weak finding — the bar is "the author would want to be asked".
    - **Rephrase** it if the underlying concern is real but the wording is vague, overstated, or misdiagnosed. State the real issue plainly and constructively.
    - **Keep** it as-is if it is correct and clearly worth raising.
-3. **Assign a final tier** (see the four-tier scale in step 7). The sub-agents only recommended red/amber/green and tend to over-use amber; you make the real call, including whether something is a purple blocker.
+6. **Assign a final tier** (see the four-tier scale in step 7). The sub-agents only recommended red/amber/green and tend to over-use amber; you make the real call, including whether something is a purple blocker. **A conditional finding is capped at 🟠 amber** — no unverified assumption may block a merge. If a conditional finding would be a blocker were its assumption true, resolve the assumption (ask the user, read more code) rather than raising the tier on a guess.
 
-You may spawn sub-agents to help verify when it is more efficient — for example, one verification agent per dimension, or a single agent to re-check a batch of borderline findings. Give each the specific findings, the diff, and instructions to report back which findings it could confirm against the actual code, which it could not, and why. You remain responsible for the final decision.
+You may spawn sub-agents to help verify when it is more efficient — for example, one verification agent per dimension, or a single agent to re-check a batch of borderline findings. Give each the specific findings, the diff, and instructions to report back which findings it could confirm against the actual code, which it could not, and why. Ask them to argue **against** each finding rather than for it: the question is "show me this is not a real problem", and a finding survives only when that attempt fails. You remain responsible for the final decision.
 
 Only findings that survive triage proceed to scoring and the review document.
 
@@ -130,7 +152,7 @@ Review dimensions to score:
 - 🟠 **Amber (Minor)**: a real but less important finding — nice to fix, does not block merge. Convention nits such as incorrect naming, small readability improvements, minor observability gaps.
 - 🟢 **Green**: no issues found, or only trivial observations.
 
-The dimension score is the highest tier among that dimension's surviving findings. Do not inflate: reserve purple for true blockers, and do not push a genuine minor nit up to red just because it is the only finding.
+The dimension score is the highest tier among that dimension's surviving findings. Do not inflate: reserve purple for true blockers, and do not push a genuine minor nit up to red just because it is the only finding. Conditional findings are capped at amber (step 6), so a dimension whose only findings are conditional can never score red or purple.
 
 Capture these scores for both the review document and the agent's final response to the user.
 
@@ -148,6 +170,28 @@ Where:
 - If the `.ai/review/` folder does not exist, create it
 
 **For a re-review**, update the existing file rather than creating a new one.
+
+**Finding format:**
+
+Every finding starts with its severity emoji and status — `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**` — followed by the finding, the `path:line` it sits at, and the suggested fix.
+
+A **confirmed** finding carries no extra marker. State it plainly as a fact and include the trigger, so the author can see the problem for themselves rather than take your word for it:
+
+```markdown
+🔴 **[New]** `TenantResolver.java:88` — `resolve()` dereferences `tenantId` without a null check, so a token minted by the legacy issuer (which omits the claim, see `LegacyTokenFactory.java:34`) throws an NPE before the 401 is returned, surfacing as a 500.
+```
+
+A **conditional** finding is marked `⚠️ Conditional` and phrased as a question, with the unresolved assumptions listed underneath. Never assert that conditional code is broken:
+
+```markdown
+🟠 **[New]** ⚠️ Conditional — `TenantResolver.java:88` — Should `resolve()` guard against a null `tenantId`? It would throw an NPE rather than return a 401.
+
+Holds if:
+
+- The legacy issuer is still minting tokens without the claim (I could not confirm whether it has been decommissioned).
+```
+
+Keep the `Holds if:` bullets to the assumptions that genuinely remain open after triage — one or two. If there are more than two, the finding is not understood well enough to raise.
 
 **Document structure:**
 
@@ -190,36 +234,31 @@ last_reviewed_commit: "{latest commit hash on PR branch}"
 ## Review Dimension: Correctness & Logic
 
 [Findings related to bugs, edge cases, error handling, race conditions, or incorrect assumptions]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
+[Use the finding format defined above. List most important first.]
 [If none: "No correctness or logic issues found."]
 
 ## Review Dimension: Security
 
 [Findings related to auth/authz, injection, secret handling, unsafe defaults, or other security risks]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
+[Use the finding format defined above. List most important first.]
 [If none: "No security issues found."]
 
 ## Review Dimension: Tests
 
 [Findings related to missing coverage, missing edge cases, weak assertions, or test quality]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
+[Use the finding format defined above. List most important first.]
 [If none: "No meaningful test gaps found."]
 
 ## Review Dimension: Style & Conventions
 
 [Findings related to naming, structure, patterns, formatting, or project-specific conventions]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
+[Use the finding format defined above. List most important first.]
 [If none: "No style or convention issues found."]
 
 ## Review Dimension: Observability
 
 [Specific telemetry recommendations — spans, attributes, metrics, log lines worth adding]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
+[Use the finding format defined above. List most important first.]
 [If none: "Telemetry coverage looks adequate."]
 
 ## Review History
@@ -246,7 +285,7 @@ last_reviewed_commit: "{latest commit hash on PR branch}"
 
 Present a concise summary to the user:
 
-- Count of findings by severity and by review dimension
+- Count of findings by severity and by review dimension, noting how many are conditional
 - A purple-red-amber-green summary for each review dimension
 - The list of skills used for the review
 - The most important findings (blockers first, then red)
@@ -272,7 +311,7 @@ Ask if they would like to:
 
 **The review body** is an extremely succinct summary only — a couple of sentences plus the dimension score table. No finding detail; that belongs in the inline comments. Do not reference the markdown file you created in the local repository because it is not intended to be pushed to the remote repository. End the body with a separator and attribution line: `---` followed by `This review was generated by {agent} {model}.` where `{agent}` is the tool being used (e.g. Claude Code, GitHub Copilot, Pi) and `{model}` is the model name and version (e.g. Opus 5, Sonnet 5).
 
-**Each inline comment** starts with the severity emoji and tier (e.g. `🔴 **Red (Important)** — Correctness & logic`), then the finding and suggested fix. Use a GitHub ```suggestion block where a concrete replacement is obvious.
+**Each inline comment** starts with the severity emoji and tier (e.g. `🔴 **Red (Important)** — Correctness & logic`), then the finding and suggested fix, in the finding format from step 8. Use a GitHub ```suggestion block where a concrete replacement is obvious — but only for a confirmed finding; never attach a suggestion block to a conditional one, since a one-click fix invites the author to apply a change you are not sure is needed. Conditional findings keep their `⚠️ Conditional` marker, their question phrasing, and their `Holds if:` bullets when posted: the author is the person who can resolve the assumption, so asking them is the point.
 
 **How to post:** `gh pr review` cannot attach inline comments, so use the reviews API with a JSON payload file:
 
@@ -303,6 +342,8 @@ gh api repos/{owner}/{repo}/pulls/{number}/reviews --input review.json
 - Never modify the PR branch or push code as part of this skill
 - Never post review comments to the PR without explicit user sign-off, even in an auto/autonomous mode (see step 9); sign-off given at invocation counts
 - Verify every sub-agent finding against the real code before reporting it (step 6) — discard the false and the trivial; a short accurate review beats a long noisy one
+- A finding with no concrete trigger is speculation, not a finding — drop it rather than hedging it (steps 5 and 6). Hedged findings are the most expensive kind of noise: they still cost the author a full investigation
+- Anything resting on an assumption you could not check is a conditional finding — marked, phrased as a question, `Holds if:` bullets attached, capped at amber, never given a suggestion block
 - Be constructive — frame findings as questions or suggestions, not demands
 - Be sparing with nits — only flag patterns that genuinely matter
 - Include file paths and line numbers for every finding — they double as the anchor for the inline comment posted in step 9
