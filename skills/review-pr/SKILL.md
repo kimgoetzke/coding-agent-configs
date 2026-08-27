@@ -1,12 +1,12 @@
 ---
 name: review-pr
 description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension purple-red-amber-green, and produce a structured review saved to disk and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
-argument-hint: [PR number or URL | empty to compare current branch to main/master]
+argument-hint: [PR number or URL | empty to detect the PR for the current branch]
 ---
 
 # Review PR
 
-You are tasked with reviewing a GitHub pull request in the current repository. You will analyse the diff, check for issues across multiple dimensions, verify and triage the raw findings from the review sub-agents to cut noise, identify which skills were used during the review, assign a purple-red-amber-green score to each review dimension, and produce a structured review saved to disk and presented to the user.
+Review a GitHub pull request in the current repository, then save the review to disk and present it to the user.
 
 **Two rules that override everything else in this skill:**
 
@@ -109,9 +109,9 @@ Treat every returned finding as an **unverified candidate**. The sub-agents are 
 
 ## Step 6: Verify and triage findings
 
-The sub-agents over-report. Before anything reaches the review document, you (the main agent) must verify each candidate finding and cut the noise. This is the most important step for review quality — a review full of silly or wrong suggestions is worse than a short, sharp one.
+The sub-agents are deliberately sensitive and over-report; every finding they return is an **unverified candidate**. Before anything reaches the review document, you (the main agent) verify each candidate and cut the noise. This is the most important step for review quality — a review full of silly or wrong suggestions is worse than a short, sharp one.
 
-For each candidate finding returned by the sub-agents:
+For each candidate finding:
 
 1. **Confirm it is true.** Open the referenced file and lines, read the surrounding context, and check the claim actually holds. Common failure modes to catch: the finding misreads the code, the "missing" handling already exists elsewhere, the concern is already covered by a test or a type, or the suggestion contradicts a project convention.
 2. **Check the evidence fields.** A finding with no **Trigger**, or with a trigger too vague to reproduce, is speculation — discard it without further work. Do not repair it into a real finding on the sub-agent's behalf; if the concern is genuine you will be able to trace and state the trigger yourself, and then it is your finding, evidenced by your own reading.
