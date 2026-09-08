@@ -262,6 +262,11 @@ Under each dimension heading, list that dimension's findings in the format above
 
 Summarise for the user: findings by severity and dimension (noting how many are conditional), the tier per dimension, the skills used, the most important findings blockers-first, and the path to the review file. Ask whether they want to discuss a finding or post to the PR.
 
+**Close the summary with a conversation-name recommendation** — one line, last thing in the message. The name is `review-pr-{pr-number}-{pr-title-abbreviated}`, reusing the abbreviation from the step 9 file name — e.g. `review-pr-422-improve-explain-pr-and-review-pr-skills`.
+
+- **Claude Code or Pi**: recommend "You can run `/name review-pr-{pr-number}-{pr-title-abbreviated}` to name this conversation."
+- **Any other agent**: recommend "Consider renaming this conversation to `review-pr-{pr-number}-{pr-title-abbreviated}` if your tool supports it."
+
 **Posting requires explicit user sign-off — no exceptions.** Writing to disk is always allowed; posting is not, and producing the review is not permission to publish it. Sign-off counts if the user asked for posting when invoking the skill. Otherwise stop after presenting and wait. If in doubt, do not post.
 
 **If (and only if) the user has signed off:**

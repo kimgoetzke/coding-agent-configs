@@ -46,6 +46,11 @@ gh pr diff {number}
 
 Use these permalinks **everywhere a file path is mentioned to the user** — scope listings, walkthrough plan stops, stop headings, HTML output — so the user can click straight to the pinned source.
 
+**Recommend a conversation name.** The walk is long, so get this out of the way now: open your first message to the user with a one-line naming recommendation, then carry straight on with Step 2 — do not wait for a reply. The name is `explain-pr-{number}-{pr-title-abbreviated}`, where `{pr-title-abbreviated}` is the same abbreviation used for the output file name in Step 7 (the PR title in kebab-case, truncated to a max of 50 characters at a word boundary) — e.g. `explain-pr-422-improve-explain-pr-and-review-pr-skills`.
+
+- **Claude Code or Pi**: recommend "You can run `/name explain-pr-{number}-{pr-title-abbreviated}` to name this conversation."
+- **Any other agent**: recommend "Consider renaming this conversation to `explain-pr-{number}-{pr-title-abbreviated}` if your tool supports it."
+
 ## Step 2: Build the introduction
 
 In **interactive** mode: produce a single markdown message with these four sections, in order. Be ruthlessly concise.
