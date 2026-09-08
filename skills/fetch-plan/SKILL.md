@@ -28,10 +28,12 @@ Use this skill to reopen an existing plan created with the `planning-mode`/`plan
 
 Example:
 
-1. `2026-03-20 refactor auth flow`
-2. `2026-03-18 add retry metrics`
+1. `2026-03-20 refactor-auth-flow`
+2. `2026-03-18 add-retry-metrics`
 
 If no folders exist, tell the user no saved plans were found and suggest creating one with the `planning-mode` or `planning` skill.
+
+If only a single folder exist, skip "Phase 2: Ask the user to choose" and consider this plan to be the one the user intends to select, then proceed to "Phase 3: Load the selected plan" and load this plan.
 
 ## Phase 2: Ask the user to choose
 
