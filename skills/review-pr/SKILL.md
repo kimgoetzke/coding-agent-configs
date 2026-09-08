@@ -1,155 +1,200 @@
 ---
 name: review-pr
-description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension purple-red-amber-green, and produce a structured review saved to disk and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
-argument-hint: [PR number or URL | empty to compare current branch to main/master]
+description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension red-amber-yellow-green, and produce a structured review saved to disk and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
+argument-hint: [PR number or URL | empty to detect the PR for the current branch]
 ---
 
 # Review PR
 
-You are tasked with reviewing a GitHub pull request in the current repository. You will analyse the diff, check for issues across multiple dimensions, verify and triage the raw findings from the review sub-agents to cut noise, identify which skills were used during the review, assign a purple-red-amber-green score to each review dimension, and produce a structured review saved to disk and presented to the user.
+**Three rules that override everything else in this skill:**
 
-**Two rules that override everything else in this skill:**
+- **Never auto-post to GitHub.** Even non-interactively or in an "auto" mode, you MUST NOT post review comments without explicit sign-off from the user (step 10). The one exception: the user asked for posting when invoking the skill (e.g. "review PR 42 and post the comments").
+- **Verify before you report.** Sub-agent findings are unverified candidates. Every one passes through triage (step 6) before it reaches the review. This is how we keep out the noise.
+- **Never modify the PR branch or push code.** This skill reads and reports.
 
-- **Never auto-post to GitHub.** Even when running non-interactively or in an "auto" mode, you MUST NOT post review comments to the PR without explicit sign-off from the user. See step 9. The only exception is when the user granted that sign-off up front when invoking the skill (e.g. "review PR 42 and post the comments").
-- **Verify before you report.** Sub-agent findings are unverified. Every finding passes through the triage step (step 6) — you confirm it is true and worth raising before it reaches the review. This is how we keep out the noise.
+## Severity scale
+
+Used for individual findings and for dimension scores:
+
+- 🔴 **Red (Blocker)**: fatal — the PR must not merge until it is fixed. Data loss or corruption, a security hole, a crash or broken core path, an unintended breaking change.
+- 🟠 **Amber (Important)**: significant but not fatal — a real bug on a non-critical path, a meaningful gap in error handling, a missing test for important behaviour.
+- 🟡 **Yellow (Minor)**: real but minor — naming, small readability improvements, minor observability gaps. Does not block merge.
+- 🟢 **Green**: no issues. A **dimension score only** — no individual finding is ever green, because anything that trivial is discarded in triage.
 
 ## Step 1: Check prerequisites
 
-Verify that the GitHub CLI is available:
+Run `gh --version`. If `gh` is not found, tell the user it is required to fetch the PR or post anything back, and ask whether to continue regardless.
 
-- Run `gh --version`
-- **If `gh` is not found**: inform the user that `gh` (GitHub CLI) is required for this skill to work as expected and that without it you may not be able to perform the intended review. Ask the user explicitly whether they wish to continue regardless. If they decline, stop.
+- If they decline, stop.
+- If they accept: skip steps 2 to 4, diff the current branch against its base with `git diff` in step 5, record `no PR metadata — gh unavailable` in the frontmatter fields you cannot fill, and skip posting in step 10.
 
 ## Step 2: Resolve the PR
 
-**If an argument was provided** (PR number or URL):
+**Argument provided:**
 
-- If the argument is a URL pointing to a different repository, respond with: "This skill only supports reviewing PRs in the current repository. Please switch to the relevant repo and try again." then stop.
-- Otherwise, extract the PR number and proceed.
+- A GitHub PR URL — compare its `owner/repo` against `gh repo view --json nameWithOwner --jq '.nameWithOwner'`. If they differ, reply "This skill only supports reviewing PRs in the current repository. Please switch to the relevant repo and try again." and stop.
+- A bare number, or a URL for this repository — extract the number and proceed.
+- Anything else — say the argument was not recognised and ask for a PR number.
 
-**If no argument was provided:**
-
-- Run `gh pr view --json number,title,url 2>/dev/null` to detect a PR from the current branch.
-- If no PR is found, ask the user for a PR number.
-
-Validate the PR exists: `gh pr view {number} --json number,title,headRefName,baseRefName,url,body,author,state`
+**No argument:** run `gh pr view --json number,title,url 2>/dev/null` to detect a PR for the current branch. If none, ask the user for a number.
 
 ## Step 3: Gather PR metadata
-
-Run the following to collect metadata:
 
 ```bash
 gh pr view {number} --json number,title,headRefName,baseRefName,url,body,author,state,commits
 ```
 
-Also collect:
+This confirms the PR exists. Also collect:
 
-- Latest commit hash on the PR branch: `gh pr view {number} --json commits --jq '.commits[-1].oid'`
-- Current date/time: `date '+%Y-%m-%d %H:%M:%S %Z'`
-- Repository name: `basename $(git rev-parse --show-toplevel)`
-
-Store all metadata for use in step 8.
+- Latest commit on the PR branch: `gh pr view {number} --json commits --jq '.commits[-1].oid'`
+- Date and time: `date '+%Y-%m-%d %H:%M:%S %Z'`
+- Repository slug: `gh repo view --json nameWithOwner --jq '.nameWithOwner'` — the `{owner/repo}` used in the frontmatter and in step 10's API path
 
 ## Step 4: Check for existing review
 
-Determine the output path (see step 8 for naming convention) and check whether a review file for this PR number already exists:
+Search `{repo root}/.ai/review/* {pr-number} *.md` — the number is a whole space-delimited field, so a bare `*{pr-number}*` glob would also match dates. On multiple matches, take the one whose `pr_number` frontmatter matches.
 
-- Search for files matching `{repo root}/.ai/review/*{pr-number}*`
+**If a review exists**, compare its `last_reviewed_commit` against the latest commit from step 3:
 
-**If an existing review is found:**
-
-- Read the file and extract the `last_reviewed_commit` from the frontmatter
-- Get the latest commit on the PR: `gh pr view {number} --json commits --jq '.commits[-1].oid'`
-- **If `last_reviewed_commit` equals the latest commit**: inform the user the PR has already been reviewed up to the latest commit. Ask if they want a fresh review anyway. If not, stop.
-- **If they differ**: this is a re-review. Note the `last_reviewed_commit` so you can scope the diff in step 5 to only the new changes. You will update the existing file rather than creating a new one.
-
-**If no existing review is found:** proceed normally (new review).
+- **Equal** — tell the user the PR is already reviewed up to the latest commit, and ask whether to review again anyway. If not, stop.
+- **Different** — this is a re-review: scope the diff in step 5 to the new commits, and update the existing file rather than creating one.
 
 ## Step 5: Analyse the diff
 
 **Fetch the diff:**
 
 - New review: `gh pr diff {number}`
-- Re-review: `git diff {last_reviewed_commit}..{latest_commit} -- {files in PR}` to get only new changes
+- Re-review: `git fetch origin {headRefName}`, then `git diff {last_reviewed_commit}..{latest commit}`. If a commit is missing locally, fall back to `gh pr diff {number}` and note in the review that it was not scoped to the new changes
 
 **Read project conventions:**
 
-- If they exist, read the repository's agent-instruction files for project-specific conventions, including `CLAUDE.md`, `AGENT.md`, and analogous files such as `.claude/CLAUDE.md`, `.copilot/copilot-instructions.md`, or `.pi/agent/AGENT.md`
-- Based on file types in the diff, identify relevant convention skills (e.g. `rust-test-conventions`, `rust-standards`) and read their SKILL.md files for reference
-- Keep a list of every skill consulted during the review so it can be included in the output document and final response. This should include `review-pr` itself plus any project-specific convention or review skills used.
+- Agent-instruction files, where present: `CLAUDE.md`, `AGENT.md`, `.claude/CLAUDE.md`, `.copilot/copilot-instructions.md`, `.pi/agent/AGENT.md`
+- Convention skills matching the file types in the diff (e.g. `rust-test-conventions`, `rust-standards`) — read their SKILL.md
+- Keep a list of every skill consulted, `review-pr` included; it goes in the output document and your final response
 
-**Spawn parallel sub-agents** using the dedicated review agents, each focused on one review dimension:
+**Spawn the review sub-agents in parallel**, one per dimension: `correctness-reviewer`, `security-reviewer`, `test-reviewer`, `conventions-reviewer`, `observability-reviewer`.
 
-1. **Correctness & logic** — use the `correctness-reviewer` agent. Pass it the diff.
-2. **Security** — use the `security-reviewer` agent. Pass it the diff.
-3. **Tests** — use the `test-reviewer` agent. Pass it the diff and any test convention references (e.g. `rust-test-conventions`).
-4. **Style & conventions** — use the `conventions-reviewer` agent. Pass it the diff and all project convention references gathered above (for example `CLAUDE.md`, `AGENT.md`, `.copilot/copilot-instructions.md`, `.pi/agent/AGENT.md`, and language-specific convention skills).
-5. **Observability** — use the `observability-reviewer` agent. Pass it the diff. This agent has basic OTel conventions embedded; also pass any project-specific telemetry conventions found above.
+Every sub-agent prompt must include:
 
-Each sub-agent prompt should include:
+- The diff, plus the convention references gathered above — test conventions to `test-reviewer`, project and language conventions to `conventions-reviewer`, telemetry conventions to `observability-reviewer` (which already has basic OTel conventions embedded)
+- A reminder to return findings with file paths, line numbers and a severity
+- A reminder to recommend a dimension score of 🟠 amber, 🟡 yellow or 🟢 green only, with a rationale — 🔴 red is yours to assign, not theirs
+- **The evidence rules below, quoted verbatim** — they are the main defence against speculative findings, so do not paraphrase them away
 
-- The diff (or relevant portion)
-- Any applicable convention references (gathered above)
-- A reminder to return findings with file paths, line numbers, severity, and a recommended score with rationale
+**Evidence rules for sub-agents:**
 
-Treat every returned finding as an **unverified candidate**. The sub-agents are deliberately sensitive and over-report; you decide what is real in step 6.
+> Every finding you return MUST carry these three fields on top of the usual ones:
+>
+> - **Evidence:** the specific code you read that supports the claim, cited as `path:line` — including code outside the diff (callers, callees, config, existing tests). A diff hunk on its own is not evidence that a problem is real; it is only where you started looking.
+> - **Trigger:** the concrete input, state, or sequence that makes the problem actually happen, and the wrong outcome it produces. For example "a request with a null `tenantId` reaches `resolve()` and throws an NPE at line 88", not "this could fail if the input is unexpected".
+> - **Holds if:** each assumption you could not verify yourself, one bullet apiece, phrased so someone else can check it. Write "nothing — verified in this repo" when there are none.
+>
+> If you cannot write a specific **Trigger**, you do not have a finding — drop it. Do not report it with a caveat, a hedge, or a low confidence rating. "Might", "could potentially" and "in some cases" with no named case are all signs you are speculating.
+>
+> Never assume behaviour you have not read. If a claim depends on how a caller, a framework, a library, or a config behaves, go and read it. If you cannot read it (external service, runtime-only behaviour, another repository), that belongs in **Holds if:** — it does not silently become a fact.
 
 ## Step 6: Verify and triage findings
 
-The sub-agents over-report. Before anything reaches the review document, you (the main agent) must verify each candidate finding and cut the noise. This is the most important step for review quality — a review full of silly or wrong suggestions is worse than a short, sharp one.
+The sub-agents are deliberately sensitive and over-report. You verify every candidate before it reaches the review document — a review full of wrong or silly suggestions is worse than a short, sharp one.
 
-For each candidate finding returned by the sub-agents:
+For each candidate finding:
 
-1. **Confirm it is true.** Open the referenced file and lines, read the surrounding context, and check the claim actually holds. Common failure modes to catch: the finding misreads the code, the "missing" handling already exists elsewhere, the concern is already covered by a test or a type, or the suggestion contradicts a project convention.
-2. **Decide its fate:**
-   - **Discard** it if it is false, speculative, already handled, or a trivial nit that does not genuinely matter (be ruthless — most discarded findings will be low-severity ones).
-   - **Rephrase** it if the underlying concern is real but the wording is vague, overstated, or misdiagnosed. State the real issue plainly and constructively.
-   - **Keep** it as-is if it is correct and clearly worth raising.
-3. **Assign a final tier** (see the four-tier scale in step 7). The sub-agents only recommended red/amber/green and tend to over-use amber; you make the real call, including whether something is a purple blocker.
+1. **Confirm it is true.** Read the referenced lines and their surrounding context. Common failure modes: the finding misreads the code, the "missing" handling exists elsewhere, a test or a type already covers it, or the suggestion contradicts a project convention.
+2. **Check the `Evidence:` citations.** Open each `path:line` and confirm it says what the finding claims. A citation that does not resolve, or does not support the claim, discredits the finding — discard it.
+3. **Check the `Trigger:`.** No trigger, or one too vague to reproduce, means speculation — discard it, and do not rewrite it into a real finding on the sub-agent's behalf. A hedged finding is the most expensive kind of noise: it still costs the author a full investigation.
+4. **Settle each `Holds if:` bullet** against the repository:
+   - Verified → strike it off.
+   - Disproved → discard the finding, its premise is wrong.
+   - Unverifiable from the code (production data, an external service, another repository, the author's intent) → it stays, and the finding is **conditional**.
+5. **Decide its fate:**
+   - **Discard** anything false, speculative, already handled, or a nit that does not genuinely matter. Be ruthless.
+   - **Discard** a conditional finding whose assumption is far-fetched, whose worst case is minor even if it holds, or which still carries more than two assumptions. Conditional is not a licence to keep a weak finding — the bar is "the author would want to be asked".
+   - **Rephrase** anything real but vaguely, overstatedly or wrongly worded. State it plainly, as a question or a suggestion rather than a demand.
+   - **Keep** the rest as-is.
+6. **Assign a tier.** Sub-agents recommend amber, yellow or green and over-use amber; you make the real call, including whether something is a red blocker.
 
-You may spawn sub-agents to help verify when it is more efficient — for example, one verification agent per dimension, or a single agent to re-check a batch of borderline findings. Give each the specific findings, the diff, and instructions to report back which findings it could confirm against the actual code, which it could not, and why. You remain responsible for the final decision.
+**Confirmed vs conditional** governs how a finding is written, scored and posted:
 
-Only findings that survive triage proceed to scoring and the review document.
+|                  | **Confirmed**                      | **Conditional**                                            |
+| ---------------- | ---------------------------------- | ---------------------------------------------------------- |
+| Marker           | none                               | `⚠️ Conditional`                                            |
+| Phrasing         | stated as fact, trigger folded in  | a question to the author, never an assertion it is broken   |
+| Assumptions      | none                               | the one or two surviving `Holds if:` bullets, listed under it |
+| Maximum tier     | 🔴 red                             | 🟡 yellow — no unverified assumption may block a merge      |
+| Suggestion block | allowed                            | never                                                       |
 
-## Step 7: Score each review dimension
+If a conditional finding would be a blocker were its assumption true, settle the assumption (ask the user, read more code) rather than raising the tier on a guess. If it cannot be settled, leave it conditional at yellow and say in the finding that it would be a blocker if the assumption holds.
 
-After triage, assign a **purple-red-amber-green** score to each review dimension and prepare a short rationale for each score.
+You may spawn sub-agents to help. Give each the findings and the diff with one instruction: attempt to **disprove** each finding against the code, and report either the concrete reason it is wrong or that none was found. "Could not disprove" is input to your decision, not the decision.
 
-Review dimensions to score:
+## Step 7: Visualise each finding
 
-1. Correctness & logic
-2. Security
-3. Tests
-4. Style & conventions
-5. Observability
+Reviews are read by people who do not know this repository. Give each surviving finding a **Mermaid diagram** that explains the problem to someone seeing the code for the first time, placed directly under the finding in the review document. Mermaid renders natively on GitHub and in most Markdown viewers, so this needs no extra file.
 
-**Four-tier severity scale** (applies to individual findings and to dimension scores):
+**Skip the diagram** where the finding is obvious at a glance from a single line or a small function — a wrong operator, an inverted condition, a naming nit, a missing null check on the line above. A diagram that only restates the code is noise. Most style and convention findings need none; most correctness, security and concurrency findings earn one.
 
-- 🟣 **Purple (Blocker)**: a fatal issue — the PR must not be merged until it is fixed. Data loss or corruption, a security hole, a crash or broken core path, a breaking change shipped unintentionally. Reserve this for issues that genuinely stop the merge.
-- 🔴 **Red (Important)**: a significant issue that should be fixed before merge but is not fatal — a real bug on a non-critical path, a meaningful gap in error handling, a missing test for important behaviour. This is where the more important findings that used to be lumped into amber now live.
-- 🟠 **Amber (Minor)**: a real but less important finding — nice to fix, does not block merge. Convention nits such as incorrect naming, small readability improvements, minor observability gaps.
-- 🟢 **Green**: no issues found, or only trivial observations.
+**Match the form to the problem:**
 
-The dimension score is the highest tier among that dimension's surviving findings. Do not inflate: reserve purple for true blockers, and do not push a genuine minor nit up to red just because it is the only finding.
+| The finding is about                       | Use                                                        |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| A wrong or missing path through the logic   | `flowchart`                                                 |
+| Ordering, timing, a race, a call sequence   | `sequenceDiagram`                                           |
+| A lifecycle or state transition             | `stateDiagram-v2`                                           |
+| Missing test coverage                       | a short table of cases covered vs not — a diagram adds nothing |
 
-Capture these scores for both the review document and the agent's final response to the user.
+**Rules for the diagram:**
 
-## Step 8: Write review to disk
+- Label nodes with what happens in the world, not with symbols — "a token arrives with no tenant ID", not "`resolve()` line 88". A reader who has never opened this repo must still follow it
+- Show only the broken path and the working path it diverges from. A diagram of the whole feature buries the point
+- Mark where it goes wrong and what the reader should conclude — a `💥` node, or a `Note over` in a sequence diagram
+- Keep it to about ten nodes. Needing more means the finding covers too much and should be split
+- For a conditional finding, put the diagram after the `Holds if:` bullets, and draw the path as the one that occurs *if* the assumption holds
 
-**Output location:**
+The confirmed example from step 9 would carry:
 
-`{repo root}/.ai/review/{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}.md`
+```mermaid
+flowchart TD
+    A[Request arrives carrying a login token] --> B{Does the token include a tenant ID?}
+    B -->|Yes, standard issuer| C[Tenant resolved, request proceeds]
+    B -->|No, legacy issuer| D[Code reads the tenant ID regardless]
+    D --> E[💥 Crash: caller gets a 500 instead of the 401 they should have]
+```
 
-Where:
+## Step 8: Score each review dimension
 
-- `{yyyy-mm-dd}` is today's date
-- `{pr-number}` is the PR number (e.g. `42`)
-- `{pr-title-abbreviated}` is the PR title in kebab-case, truncated to max 50 characters (trim at word boundary)
-- If the `.ai/review/` folder does not exist, create it
+Give each dimension — correctness & logic, security, tests, style & conventions, observability — the highest tier among its surviving findings, plus a one-line rationale.
 
-**For a re-review**, update the existing file rather than creating a new one.
+Do not inflate: reserve red for true blockers, and do not push a genuine minor nit up to amber because it is the only finding. Conditional findings cap at yellow, so a dimension whose findings are all conditional cannot score amber or red.
 
-**Document structure:**
+## Step 9: Write the review to disk
+
+Save to `{repo root}/.ai/review/{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}.md`, creating `.ai/review/` if needed. The title is kebab-case, truncated at a word boundary to 50 characters. For a re-review, update the existing file.
+
+**Finding format:**
+
+```text
+{severity emoji} **[{status}]** {⚠️ Conditional, if it is} — `path:line` — {the finding}. {the suggested fix, where one is obvious}.
+```
+
+Any severity pairs with any status (`[New]`, `[Unresolved]`, `[Resolved]`) — a resolved finding keeps the severity it was first given, and on an initial review everything is `[New]`. The `path:line` is mandatory: it anchors the inline comment in step 10. The step 7 diagram, where the finding has one, goes last — after the finding text and after any `Holds if:` bullets.
+
+A **confirmed** finding folds its trigger into the sentence rather than labelling it, so the author can see the problem for themselves:
+
+```text
+🟠 **[New]** — `TenantResolver.java:88` — `resolve()` dereferences `tenantId` without a null check, so a token minted by the legacy issuer (which omits the claim, see `LegacyTokenFactory.java:34`) throws an NPE before the 401 is returned, surfacing as a 500. Guard the claim before dereferencing and return 401 when it is absent.
+```
+
+A **conditional** finding is marked, asks rather than asserts, and lists its surviving assumptions:
+
+```text
+🟡 **[New]** ⚠️ Conditional — `TenantResolver.java:88` — Should `resolve()` guard against a null `tenantId`? As written it would throw an NPE rather than return a 401.
+
+Holds if:
+
+- The legacy issuer is still minting tokens without the claim (I could not confirm whether it has been decommissioned).
+```
+
+**Document structure.** `{...}` marks a substitution; square brackets in status tags are literal.
 
 ```markdown
 ---
@@ -159,7 +204,7 @@ pr_url: "{url}"
 pr_author: "{author}"
 pr_branch: "{headRefName}"
 base_branch: "{baseRefName}"
-repository: "{repo name}"
+repository: "{owner/repo}"
 first_reviewed: "{yyyy-mm-dd HH:MM:SS TZ}"
 last_reviewed: "{yyyy-mm-dd HH:MM:SS TZ}"
 last_reviewed_commit: "{latest commit hash on PR branch}"
@@ -169,58 +214,32 @@ last_reviewed_commit: "{latest commit hash on PR branch}"
 
 ## Summary
 
-[2-3 sentence high-level assessment of the PR]
+{2-3 sentence high-level assessment of the PR}
 
 ## Review Dimension Scores
 
-| Dimension           | Score                                       | Rationale         |
-| ------------------- | ------------------------------------------- | ----------------- |
-| Correctness & logic | {🟣 Blocker / 🔴 Red / 🟠 Amber / 🟢 Green} | {brief rationale} |
-| Security            | {🟣 Blocker / 🔴 Red / 🟠 Amber / 🟢 Green} | {brief rationale} |
-| Observability       | {🟣 Blocker / 🔴 Red / 🟠 Amber / 🟢 Green} | {brief rationale} |
-| Tests               | {🟣 Blocker / 🔴 Red / 🟠 Amber / 🟢 Green} | {brief rationale} |
-| Style & conventions | {🟣 Blocker / 🔴 Red / 🟠 Amber / 🟢 Green} | {brief rationale} |
+| Dimension           | Score  | Rationale         |
+| ------------------- | ------ | ----------------- |
+| Correctness & logic | {tier} | {brief rationale} |
+| Security            | {tier} | {brief rationale} |
+| Tests               | {tier} | {brief rationale} |
+| Style & conventions | {tier} | {brief rationale} |
+| Observability       | {tier} | {brief rationale} |
 
 ## Skills Used For This Review
 
 - `review-pr`
 - `{skill-name}`
-- `{skill-name}`
 
 ## Review Dimension: Correctness & Logic
 
-[Findings related to bugs, edge cases, error handling, race conditions, or incorrect assumptions]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
-[If none: "No correctness or logic issues found."]
-
 ## Review Dimension: Security
-
-[Findings related to auth/authz, injection, secret handling, unsafe defaults, or other security risks]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
-[If none: "No security issues found."]
 
 ## Review Dimension: Tests
 
-[Findings related to missing coverage, missing edge cases, weak assertions, or test quality]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
-[If none: "No meaningful test gaps found."]
-
 ## Review Dimension: Style & Conventions
 
-[Findings related to naming, structure, patterns, formatting, or project-specific conventions]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
-[If none: "No style or convention issues found."]
-
 ## Review Dimension: Observability
-
-[Specific telemetry recommendations — spans, attributes, metrics, log lines worth adding]
-[Prefix each finding with severity and status: e.g. `🟣 **[New]**`, `🔴 **[New]**`, `🟠 **[Unresolved]**`, `🟢 **[Resolved]**`]
-[List most important first.]
-[If none: "Telemetry coverage looks adequate."]
 
 ## Review History
 
@@ -229,55 +248,36 @@ last_reviewed_commit: "{latest commit hash on PR branch}"
 | {date} | {short hash} | New review | Initial review |
 ```
 
-**For a re-review**, append a new row to the Review History table and update findings:
+Under each dimension heading, list that dimension's findings in the format above, most important first; where a dimension has none, write "No issues found." Score cells take the colour name — `🟠 Amber`.
 
-- Reassess every existing finding that is not already resolved:
-  - If the issue has been addressed in the new commits, change its status to `{severity} **[Resolved]**`
-  - If the issue persists, change its status from `[New]` to `[Unresolved]`
-- Add net-new findings with status `[New]` under each relevant section
-- On initial reviews all findings use the `[New]` status tag
-- Recalculate dimension scores based on unresolved findings only — resolved findings do not count
-- Update the score table and score rationales so they reflect the latest overall state of the PR
-- Update the `last_reviewed` and `last_reviewed_commit` frontmatter fields
-- Update the `skills_used` list if additional skills were consulted during the re-review
-- Do NOT remove previous findings — they serve as a record
+**For a re-review**, add a Review History row and update the findings:
 
-## Step 9: Present findings
+- Reassess every finding not already `[Resolved]`: change it to `[Resolved]` if the new commits addressed it, keeping its original severity, or from `[New]` to `[Unresolved]` if it persists
+- Add net-new findings as `[New]`
+- Rescore from `[New]` and `[Unresolved]` findings only, and update the table and rationales
+- Update `last_reviewed`, `last_reviewed_commit`, and the skills list
+- Do NOT remove previous findings — they are the record
 
-Present a concise summary to the user:
+## Step 10: Present findings and, on sign-off, post to GitHub
 
-- Count of findings by severity and by review dimension
-- A purple-red-amber-green summary for each review dimension
-- The list of skills used for the review
-- The most important findings (blockers first, then red)
-- Path to the review file on disk
+Summarise for the user: findings by severity and dimension (noting how many are conditional), the tier per dimension, the skills used, the most important findings blockers-first, and the path to the review file. Ask whether they want to discuss a finding or post to the PR.
 
-Ask if they would like to:
+**Posting requires explicit user sign-off — no exceptions.** Writing to disk is always allowed; posting is not, and producing the review is not permission to publish it. Sign-off counts if the user asked for posting when invoking the skill. Otherwise stop after presenting and wait. If in doubt, do not post.
 
-- Discuss any specific finding
-- Post review comments on the PR via GitHub
+**If (and only if) the user has signed off:**
 
-**Posting to GitHub requires explicit user sign-off — no exceptions:**
+- Post one **inline comment per finding**, anchored to the file and line it is about. Every surviving finding is red, amber or yellow, and all of them are posted
+- With no findings at all, post the body alone
+- Never use `--request-changes`, even for blockers — the event is always `COMMENT`
 
-- Do NOT post anything to the PR unless the user has explicitly asked you to. This holds even when you are running non-interactively or in an "auto" / autonomous mode: writing the review to disk is always allowed, posting to GitHub is not. Producing the review is not permission to publish it.
-- The one way this sign-off can be given up front is at invocation — if the user asked for posting when they invoked the skill (e.g. "review PR 42 and post the comments"), that counts as sign-off and you may post without asking again.
-- In every other case, stop after presenting and wait for the user to tell you to post. If in doubt, do not post.
+**The review body** is a couple of sentences plus the score table — no finding detail, that lives in the inline comments. Never reference the local review file; it is not pushed, so the link is dead for everyone else. End with `---` and `This review was generated by {agent} {model}.` — the tool (e.g. Claude Code, GitHub Copilot, Pi) and the model (e.g. Opus 5, Sonnet 5); name the agent alone if unsure of the model.
 
-**If (and only if) the user has signed off, post the review as inline comments:**
+**Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the file. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets — the author is the one person who can settle the assumption.
 
-- Post one **inline comment per finding**, anchored to the file and line the finding is actually about
-- Only post findings scored 🟣 purple, 🔴 red, or 🟠 amber — 🟢 green findings and trivial observations are never posted, they live only in the review file on disk
-- If nothing is amber or worse, post the summary body alone with no inline comments
-- Never use `--request-changes`, even when there are blocker or critical issues — the review event is always `COMMENT`
-
-**The review body** is an extremely succinct summary only — a couple of sentences plus the dimension score table. No finding detail; that belongs in the inline comments. Do not reference the markdown file you created in the local repository because it is not intended to be pushed to the remote repository. End the body with a separator and attribution line: `---` followed by `This review was generated by {agent} {model}.` where `{agent}` is the tool being used (e.g. Claude Code, GitHub Copilot, Pi) and `{model}` is the model name and version (e.g. Opus 5, Sonnet 5).
-
-**Each inline comment** starts with the severity emoji and tier (e.g. `🔴 **Red (Important)** — Correctness & logic`), then the finding and suggested fix. Use a GitHub ```suggestion block where a concrete replacement is obvious.
-
-**How to post:** `gh pr review` cannot attach inline comments, so use the reviews API with a JSON payload file:
+**How to post:** `gh pr review` cannot attach inline comments, so use the reviews API. Write the payload outside the working tree so it cannot be committed (e.g. `$(mktemp -t review-XXXXXX.json)`) and delete it afterwards:
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/{number}/reviews --input review.json
+gh api repos/{owner/repo}/pulls/{number}/reviews --input "$payload"
 ```
 
 ```json
@@ -286,26 +286,13 @@ gh api repos/{owner}/{repo}/pulls/{number}/reviews --input review.json
   "event": "COMMENT",
   "body": "{succinct summary + score table + attribution}",
   "comments": [
-    { "path": "src/foo.rs", "line": 42, "side": "RIGHT", "body": "🔴 **Red (Important)** — Correctness & logic\n\n..." },
-    { "path": "src/bar.rs", "start_line": 10, "line": 14, "side": "RIGHT", "body": "🟠 **Amber (Minor)** — Style & conventions\n\n..." }
+    { "path": "src/foo.rs", "line": 42, "side": "RIGHT", "body": "🟠 **Amber (Important)** — Correctness & logic\n\n..." },
+    { "path": "src/bar.rs", "start_line": 10, "line": 14, "side": "RIGHT", "body": "🟡 **Yellow (Minor)** — Style & conventions\n\n..." }
   ]
 }
 ```
 
-- Lines must exist in the PR diff — the API rejects the whole review if any comment points outside it. Check the diff hunks before choosing a line
-- Use `"side": "LEFT"` for a comment on a removed line
-- If a finding has no sensible anchor in the diff (e.g. "this test file is missing entirely"), fold it into the review body under a short `### Not anchored to a line` heading rather than dropping it
-- If the API rejects the payload, fix the offending anchors and retry — do not silently fall back to one big `gh pr review --comment`
-
-## Important notes
-
-- Only review PRs in the current repository — reject cross-repo URLs
-- Never modify the PR branch or push code as part of this skill
-- Never post review comments to the PR without explicit user sign-off, even in an auto/autonomous mode (see step 9); sign-off given at invocation counts
-- Verify every sub-agent finding against the real code before reporting it (step 6) — discard the false and the trivial; a short accurate review beats a long noisy one
-- Be constructive — frame findings as questions or suggestions, not demands
-- Be sparing with nits — only flag patterns that genuinely matter
-- Include file paths and line numbers for every finding — they double as the anchor for the inline comment posted in step 9
-- Posted reviews are inline comments on the relevant lines, amber or worse only; the body is a succinct summary, not a finding dump
-- For re-reviews, focus only on new/changed code since last review
-- Follow step ordering strictly: prerequisites -> resolve -> metadata -> check existing -> analyse -> verify & triage -> score -> write -> present
+- Lines must exist in the PR diff — the API rejects the whole review if any comment points outside it, so check the hunks before choosing a line
+- Use `"side": "LEFT"` for a removed line
+- A finding with no sensible anchor (e.g. "this test file is missing entirely") goes in the body under a short `### Not anchored to a line` heading rather than being dropped
+- If the API rejects the payload, fix the anchors and retry — do not silently fall back to one big `gh pr review --comment`
