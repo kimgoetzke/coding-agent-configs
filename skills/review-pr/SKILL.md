@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension purple-red-amber-green, and produce a structured review saved to disk and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
+description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension red-amber-yellow-green, and produce a structured review saved to disk and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
 argument-hint: [PR number or URL | empty to detect the PR for the current branch]
 ---
 
@@ -16,9 +16,9 @@ argument-hint: [PR number or URL | empty to detect the PR for the current branch
 
 Used for individual findings and for dimension scores:
 
-- 🟣 **Purple (Blocker)**: fatal — the PR must not merge until it is fixed. Data loss or corruption, a security hole, a crash or broken core path, an unintended breaking change.
-- 🔴 **Red (Important)**: significant but not fatal — a real bug on a non-critical path, a meaningful gap in error handling, a missing test for important behaviour.
-- 🟠 **Amber (Minor)**: real but minor — naming, small readability improvements, minor observability gaps. Does not block merge.
+- 🔴 **Red (Blocker)**: fatal — the PR must not merge until it is fixed. Data loss or corruption, a security hole, a crash or broken core path, an unintended breaking change.
+- 🟠 **Amber (Important)**: significant but not fatal — a real bug on a non-critical path, a meaningful gap in error handling, a missing test for important behaviour.
+- 🟡 **Yellow (Minor)**: real but minor — naming, small readability improvements, minor observability gaps. Does not block merge.
 - 🟢 **Green**: no issues. A **dimension score only** — no individual finding is ever green, because anything that trivial is discarded in triage.
 
 ## Step 1: Check prerequisites
@@ -78,7 +78,7 @@ Every sub-agent prompt must include:
 
 - The diff, plus the convention references gathered above — test conventions to `test-reviewer`, project and language conventions to `conventions-reviewer`, telemetry conventions to `observability-reviewer` (which already has basic OTel conventions embedded)
 - A reminder to return findings with file paths, line numbers and a severity
-- A reminder to recommend a dimension score of 🔴 red, 🟠 amber or 🟢 green only, with a rationale — 🟣 purple is yours to assign, not theirs
+- A reminder to recommend a dimension score of 🟠 amber, 🟡 yellow or 🟢 green only, with a rationale — 🔴 red is yours to assign, not theirs
 - **The evidence rules below, quoted verbatim** — they are the main defence against speculative findings, so do not paraphrase them away
 
 **Evidence rules for sub-agents:**
@@ -111,7 +111,7 @@ For each candidate finding:
    - **Discard** a conditional finding whose assumption is far-fetched, whose worst case is minor even if it holds, or which still carries more than two assumptions. Conditional is not a licence to keep a weak finding — the bar is "the author would want to be asked".
    - **Rephrase** anything real but vaguely, overstatedly or wrongly worded. State it plainly, as a question or a suggestion rather than a demand.
    - **Keep** the rest as-is.
-6. **Assign a tier.** Sub-agents recommend red, amber or green and over-use amber; you make the real call, including whether something is a purple blocker.
+6. **Assign a tier.** Sub-agents recommend amber, yellow or green and over-use amber; you make the real call, including whether something is a red blocker.
 
 **Confirmed vs conditional** governs how a finding is written, scored and posted:
 
@@ -120,10 +120,10 @@ For each candidate finding:
 | Marker           | none                               | `⚠️ Conditional`                                            |
 | Phrasing         | stated as fact, trigger folded in  | a question to the author, never an assertion it is broken   |
 | Assumptions      | none                               | the one or two surviving `Holds if:` bullets, listed under it |
-| Maximum tier     | 🟣 purple                          | 🟠 amber — no unverified assumption may block a merge       |
+| Maximum tier     | 🔴 red                             | 🟡 yellow — no unverified assumption may block a merge      |
 | Suggestion block | allowed                            | never                                                       |
 
-If a conditional finding would be a blocker were its assumption true, settle the assumption (ask the user, read more code) rather than raising the tier on a guess. If it cannot be settled, leave it conditional at amber and say in the finding that it would be a blocker if the assumption holds.
+If a conditional finding would be a blocker were its assumption true, settle the assumption (ask the user, read more code) rather than raising the tier on a guess. If it cannot be settled, leave it conditional at yellow and say in the finding that it would be a blocker if the assumption holds.
 
 You may spawn sub-agents to help. Give each the findings and the diff with one instruction: attempt to **disprove** each finding against the code, and report either the concrete reason it is wrong or that none was found. "Could not disprove" is input to your decision, not the decision.
 
@@ -164,7 +164,7 @@ flowchart TD
 
 Give each dimension — correctness & logic, security, tests, style & conventions, observability — the highest tier among its surviving findings, plus a one-line rationale.
 
-Do not inflate: reserve purple for true blockers, and do not push a genuine minor nit up to red because it is the only finding. Conditional findings cap at amber, so a dimension whose findings are all conditional cannot score red or purple.
+Do not inflate: reserve red for true blockers, and do not push a genuine minor nit up to amber because it is the only finding. Conditional findings cap at yellow, so a dimension whose findings are all conditional cannot score amber or red.
 
 ## Step 9: Write the review to disk
 
@@ -181,13 +181,13 @@ Any severity pairs with any status (`[New]`, `[Unresolved]`, `[Resolved]`) — a
 A **confirmed** finding folds its trigger into the sentence rather than labelling it, so the author can see the problem for themselves:
 
 ```text
-🔴 **[New]** — `TenantResolver.java:88` — `resolve()` dereferences `tenantId` without a null check, so a token minted by the legacy issuer (which omits the claim, see `LegacyTokenFactory.java:34`) throws an NPE before the 401 is returned, surfacing as a 500. Guard the claim before dereferencing and return 401 when it is absent.
+🟠 **[New]** — `TenantResolver.java:88` — `resolve()` dereferences `tenantId` without a null check, so a token minted by the legacy issuer (which omits the claim, see `LegacyTokenFactory.java:34`) throws an NPE before the 401 is returned, surfacing as a 500. Guard the claim before dereferencing and return 401 when it is absent.
 ```
 
 A **conditional** finding is marked, asks rather than asserts, and lists its surviving assumptions:
 
 ```text
-🟠 **[New]** ⚠️ Conditional — `TenantResolver.java:88` — Should `resolve()` guard against a null `tenantId`? As written it would throw an NPE rather than return a 401.
+🟡 **[New]** ⚠️ Conditional — `TenantResolver.java:88` — Should `resolve()` guard against a null `tenantId`? As written it would throw an NPE rather than return a 401.
 
 Holds if:
 
@@ -266,13 +266,13 @@ Summarise for the user: findings by severity and dimension (noting how many are 
 
 **If (and only if) the user has signed off:**
 
-- Post one **inline comment per finding**, anchored to the file and line it is about. Every surviving finding is purple, red or amber, and all of them are posted
+- Post one **inline comment per finding**, anchored to the file and line it is about. Every surviving finding is red, amber or yellow, and all of them are posted
 - With no findings at all, post the body alone
 - Never use `--request-changes`, even for blockers — the event is always `COMMENT`
 
 **The review body** is a couple of sentences plus the score table — no finding detail, that lives in the inline comments. Never reference the local review file; it is not pushed, so the link is dead for everyone else. End with `---` and `This review was generated by {agent} {model}.` — the tool (e.g. Claude Code, GitHub Copilot, Pi) and the model (e.g. Opus 5, Sonnet 5); name the agent alone if unsure of the model.
 
-**Each inline comment** opens with the tier and dimension — `🔴 **Red (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the file. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets — the author is the one person who can settle the assumption.
+**Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the file. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets — the author is the one person who can settle the assumption.
 
 **How to post:** `gh pr review` cannot attach inline comments, so use the reviews API. Write the payload outside the working tree so it cannot be committed (e.g. `$(mktemp -t review-XXXXXX.json)`) and delete it afterwards:
 
@@ -286,8 +286,8 @@ gh api repos/{owner/repo}/pulls/{number}/reviews --input "$payload"
   "event": "COMMENT",
   "body": "{succinct summary + score table + attribution}",
   "comments": [
-    { "path": "src/foo.rs", "line": 42, "side": "RIGHT", "body": "🔴 **Red (Important)** — Correctness & logic\n\n..." },
-    { "path": "src/bar.rs", "start_line": 10, "line": 14, "side": "RIGHT", "body": "🟠 **Amber (Minor)** — Style & conventions\n\n..." }
+    { "path": "src/foo.rs", "line": 42, "side": "RIGHT", "body": "🟠 **Amber (Important)** — Correctness & logic\n\n..." },
+    { "path": "src/bar.rs", "start_line": 10, "line": 14, "side": "RIGHT", "body": "🟡 **Yellow (Minor)** — Style & conventions\n\n..." }
   ]
 }
 ```
