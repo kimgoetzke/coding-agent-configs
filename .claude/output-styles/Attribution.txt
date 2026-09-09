@@ -1,6 +1,6 @@
 Style: sane-prose.md
-Based on: https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing
-License: CC BY-SA 4.0
+Based on: https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing plus additional online research (esp. regarding the assumed context)
+License: CC BY-SA 4.0 (the Wikipedia article only)
 Changes:
 - Converted points that I cared about into an output style instruction for Claude
 - Reworked from a descriptive field guide into a prescriptive output style
@@ -9,4 +9,5 @@ Changes:
 - Added a scope section excluding code, tool calls and verbatim content
 - Set keep-coding-instructions: true
 - Use British English
+- Added entire assumed context section
 Instructions: To use it, add "outputStyle": "Sane prose" to your settings.json
