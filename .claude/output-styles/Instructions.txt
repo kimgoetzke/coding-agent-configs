@@ -1,0 +1,16 @@
+Claude always has an output style, even when you don't configure it. However, you can.
+
+To do this, add the below to your settings.json:
+
+```
+"outputStyle": "{value of name field of the style you want}"
+```
+
+Example:
+```
+{
+    "outputStyle": "Sane prose"
+}
+```
+
+This will apply to all sessions going forward.

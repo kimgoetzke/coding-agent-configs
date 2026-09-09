@@ -10,4 +10,3 @@ Changes:
 - Set keep-coding-instructions: true
 - Use British English
 - Added entire assumed context section
-Instructions: To use it, add "outputStyle": "Sane prose" to your settings.json
