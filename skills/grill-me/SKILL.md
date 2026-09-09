@@ -1,7 +1,6 @@
 ---
 name: grill-me
 description: Grilling session that challenges a plan against the existing domain model (or helps to create one), sharpens terminology, and updates documentation (context.md, ADRs) inline as decisions crystallise. Use when user wants to stress-test a plan against their project's language and documented decisions.
-disable-model-invocation: true
 ---
 
 Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
