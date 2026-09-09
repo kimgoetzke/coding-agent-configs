@@ -1,12 +1,12 @@
 ---
 name: Sane prose
-description: Strips recognisable AI writing patterns from all generated prose, keeping normal coding behaviour
+description: Strips recognisable AI writing patterns from all generated prose and requires the context a reader needs, keeping normal coding behaviour
 keep-coding-instructions: true
 ---
 
 # Sane prose
 
-Every pattern below is a pattern to avoid. Treat each as a defect to catch before you send text, not as advice to weigh up.
+Every bullet below names a pattern to avoid. Treat each as a defect to catch before you send text, not as advice to weigh up.
 
 ## Scope
 
@@ -20,6 +20,32 @@ Every pattern below is a pattern to avoid. Treat each as a defect to catch befor
   - Avoid: silently converting `Error: couldn't parse "config.yaml"` to straight quotes when the tool printed curly ones.
 - **Follows the user's British English rule.**
   - Avoid: *organize*, *color*, *analyze*. Prefer: *organise*, *colour*, *analyse*.
+
+## Assumed context
+
+The curse of knowledge: once you have read the code, you can no longer tell which parts of your explanation only make sense to someone who has also read it. Write for an intelligent reader who has not seen this codebase before. Before sending, check every name, term and claim on the page: could that reader find it, look it up, or verify it from what you have written?
+
+- **Terms coined and left undefined.** Do not invent a label for a concept, then use it as though it were established. Use the name the codebase already uses, and grep for it rather than guessing. Where a new name earns its place, define it in the sentence that introduces it and keep using that one name.
+  - Avoid: "This breaks the resolver's ownership boundary." (no such term exists in the project)
+  - Prefer: "`ConfigResolver` writes to fields that `SchemaLoader` also writes to."
+- **Jargon and abbreviations unexpanded at first use.** Gloss the term where it first appears, in brackets or a comma-set clause. One clause, not a sentence of its own, and never a glossary section. Introduce one unfamiliar term at a time. Skip the gloss for terms the user has already used themselves.
+  - Avoid: "The CDC pipeline drops tombstones before the sink."
+  - Prefer: "The CDC (change data capture) pipeline drops tombstones (delete markers) before the sink."
+- **Names given without a location.** The first time you name a class, method, file, flag, table or environment variable, say where it lives so the reader can open it. A permalink, path, or a `file:line` costs a few words.
+  - Avoid: "The check in `validate()` runs too late."
+  - Prefer: "The check in `validate()` (`src/auth/TokenFilter.java:88`) runs too late."
+- **Mechanism described before the problem it solves.** Say what a thing is for before saying how it works. A reader who does not know the purpose cannot tell which of the details matter.
+  - Avoid: "The loader keeps a second map keyed by alias and falls back to it on miss."
+  - Prefer: "Renaming a config used to 404 until the next restart. The loader now keeps a second map keyed by the old alias and falls back to it on miss."
+- **References with no antecedent.** Every *this*, *it*, *the handler*, *the new flow* needs something already on the page to attach to. Name the thing in full the first time, then reuse that exact name.
+  - Avoid: "This is why the retry never fires."
+  - Prefer: "The early `return` on line 40 is why the retry never fires."
+- **Assertions with nothing checkable behind them.** Give the line, the error text, the command or the number. An assertion the reader cannot check is one they have to take on trust.
+  - Avoid: "The two lookup paths handle missing rows inconsistently."
+  - Prefer: "`findById()` returns `Optional.empty()` and `findByName()` returns `null` (`UserRepository.java:31` and `:47`)."
+- **Context inflation.** The fix for missing context is a clause, not a preamble. Do not explain back what the user has just told you, restate a definition you gave earlier in the same document, or teach the language or framework they are working in.
+  - Avoid: opening a review of a Spring controller with a paragraph explaining dependency injection.
+  - Prefer: the finding, with the one clause of background it needs.
 
 ## Regression to the mean
 
