@@ -9,7 +9,7 @@ This repository contains a collection of configuration files for coding agents. 
 
 ### Quick setup
 
-Run one of the commands below for your coding agent. The script will ask if you want to install skills, agents, and/or config files - and even if you choose config files, it'll check before overwriting an existing file. Skills and agents with the same names will be replaced though, if you choose to install skills or agents respectively. For Pi, the script also offers the starter extensions and themes from `.pi/agent/`, because the Pi starter config in this repository depends on them.
+Run one of the commands below for your coding agent. The script will ask if you want to install skills, agents, and/or config files - and even if you choose config files, it'll check before overwriting an existing file. Skills and agents with the same names will be replaced though, if you choose to install skills or agents respectively. For Pi, the script also offers the starter extensions and themes from `.pi/agent/`, because the Pi starter config in this repository depends on them. For Claude Code, it also offers the output styles from `.claude/output-styles/`, which are installed but not enabled - see [Output styles](#output-styles).
 
 ####  Pi
 
@@ -72,6 +72,8 @@ If you prefer to set things up by hand:
   - Example: `skills` -> `~/.pi/agent/skills`
   - Agents pick up skills automatically on startup or when prompted to reload them
 - If you're using Pi: the skills in this repo expect several extensions to be present, e.g. `subagent-support` and `active-mode`
+- If you're using Claude Code: copy `.claude/output-styles` into `~/.claude/output-styles` to get the output styles
+  - They are inert until you select one - see [Output styles](#output-styles)
 - If you're using Claude Code or GitHub Copilot: Review the `hooks` folder from the root of this repository and pick any hooks you like
   - The files inside the `hooks` folder have comments explaining how to use them
   - The scripts from the `hooks` folder should be copied into `~/{agent}/hooks`

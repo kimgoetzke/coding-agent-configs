@@ -54,6 +54,7 @@
       "Bash(git reset --hard *)"
     ]
   },
+  "outputStyle": "Sane prose",
   "hooks": {},
   "statusLine": {
     "type": "command",

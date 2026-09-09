@@ -20,6 +20,7 @@
 #   - All shared skills from skills/ -> the selected agent's skills directory
 #   - Agent definitions from the selected agent tree -> the local agents directory
 #   - Config files from the selected agent tree -> the local config directory
+#   - For Claude Code, output styles from .claude/output-styles/
 #   - For Pi, optional starter extensions and themes from .pi/agent/
 #
 # Optional environment:
@@ -330,6 +331,40 @@ else
 fi
 
 # -----------------------------------------------------------------------------
+# Install output styles
+# -----------------------------------------------------------------------------
+# Output styles are a Claude Code feature, so this step is skipped for the other
+# agents. Existing styles with the same name are overwritten, as for skills.
+# -----------------------------------------------------------------------------
+
+output_styles_skipped=false
+output_style_count=0
+
+if [ "$AGENT" = "claude" ]; then
+  echo ""
+  if ask_yes_no "Install output styles?"; then
+    info "Installing output styles..."
+
+    OUTPUT_STYLES_SOURCE="$TMPDIR_REMOTE/repo/$REPO_AGENT_DIR/output-styles"
+    OUTPUT_STYLES_TARGET="$AGENT_DIR/output-styles"
+    mkdir -p "$OUTPUT_STYLES_TARGET"
+
+    if [ -d "$OUTPUT_STYLES_SOURCE" ]; then
+      for output_style_file in "$OUTPUT_STYLES_SOURCE"/*.md; do
+        [ -f "$output_style_file" ] || continue
+        cp "$output_style_file" "$OUTPUT_STYLES_TARGET/"
+        output_style_count=$((output_style_count + 1))
+      done
+    fi
+
+    ok "Installed $output_style_count output styles to $OUTPUT_STYLES_TARGET"
+  else
+    warn "Skipped output styles installation - note: remove output style from settings.json, if necessary"
+    output_styles_skipped=true
+  fi
+fi
+
+# -----------------------------------------------------------------------------
 # Install Pi extensions
 # -----------------------------------------------------------------------------
 
@@ -415,6 +450,13 @@ if [ "$configs_skipped" = true ]; then
   echo "  Config:  skipped"
 else
   echo "  Config:  $AGENT_DIR"
+fi
+if [ "$AGENT" = "claude" ]; then
+  if [ "$output_styles_skipped" = true ]; then
+    echo "  Styles:  skipped"
+  else
+    echo "  Styles:  $output_style_count installed to $AGENT_DIR/output-styles"
+  fi
 fi
 if [ "$AGENT" = "pi" ]; then
   if [ "$pi_extensions_skipped" = true ]; then

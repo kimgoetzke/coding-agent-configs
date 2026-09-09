@@ -19,6 +19,7 @@
 #   - All shared skills from skills/ -> the selected agent's skills directory
 #   - Agent definitions from the selected agent tree -> the local agents directory
 #   - Config files from the selected agent tree -> the local config directory
+#   - For Claude Code, output styles from .claude/output-styles/
 #   - For Pi, optional starter extensions and themes from .pi/agent/
 #
 # Optional environment:
@@ -40,9 +41,9 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $RepoUrl = if ($env:REPO_URL)
-{ $env:REPO_URL 
+{ $env:REPO_URL
 } else
-{ 'https://github.com/kimgoetzke/coding-agent-configs.git' 
+{ 'https://github.com/kimgoetzke/coding-agent-configs.git'
 }
 
 # -----------------------------------------------------------------------------
@@ -50,16 +51,16 @@ $RepoUrl = if ($env:REPO_URL)
 # -----------------------------------------------------------------------------
 
 function Write-Info
-{ param([string]$Message) Write-Host '[info]  ' -ForegroundColor Blue -NoNewline; Write-Host $Message 
+{ param([string]$Message) Write-Host '[info]  ' -ForegroundColor Blue -NoNewline; Write-Host $Message
 }
 function Write-Ok
-{ param([string]$Message) Write-Host '[ok]    ' -ForegroundColor Green -NoNewline; Write-Host $Message 
+{ param([string]$Message) Write-Host '[ok]    ' -ForegroundColor Green -NoNewline; Write-Host $Message
 }
 function Write-Warn
-{ param([string]$Message) Write-Host '[warn]  ' -ForegroundColor Yellow -NoNewline; Write-Host $Message 
+{ param([string]$Message) Write-Host '[warn]  ' -ForegroundColor Yellow -NoNewline; Write-Host $Message
 }
 function Write-Err
-{ param([string]$Message) Write-Host '[error] ' -ForegroundColor Red -NoNewline; Write-Host $Message 
+{ param([string]$Message) Write-Host '[error] ' -ForegroundColor Red -NoNewline; Write-Host $Message
 }
 
 function Show-Usage
@@ -160,13 +161,13 @@ if (-not $Agent)
     switch ($choice)
     {
         '1'
-        { $Agent = 'claude' 
+        { $Agent = 'claude'
         }
         '2'
-        { $Agent = 'copilot' 
+        { $Agent = 'copilot'
         }
         '3'
-        { $Agent = 'pi' 
+        { $Agent = 'pi'
         }
         default
         {
@@ -344,13 +345,13 @@ try
         $configFiles = switch ($Agent)
         {
             'claude'
-            { @('CLAUDE.md', 'settings.json', 'statusline-command.sh') 
+            { @('CLAUDE.md', 'settings.json', 'statusline-command.sh')
             }
             'copilot'
-            { @('copilot-instructions.md', 'hooks.json') 
+            { @('copilot-instructions.md', 'hooks.json')
             }
             'pi'
-            { @('AGENTS.md', 'settings.json', 'command-policy.json5') 
+            { @('AGENTS.md', 'settings.json', 'command-policy.json5')
             }
         }
 
@@ -371,6 +372,44 @@ try
     {
         Write-Warn 'Skipped config files installation'
         $configsSkipped = $true
+    }
+
+    # -------------------------------------------------------------------------
+    # Install output styles
+    # -------------------------------------------------------------------------
+    # Output styles are a Claude Code feature, so this step is skipped for the
+    # other agents. Existing styles with the same name are overwritten, as for
+    # skills.
+    # -------------------------------------------------------------------------
+
+    $outputStylesSkipped = $false
+    $outputStyleCount = 0
+
+    if ($Agent -eq 'claude')
+    {
+        Write-Host ''
+        if (Read-YesNo 'Install output styles?')
+        {
+            Write-Info 'Installing output styles...'
+
+            $outputStylesSource = Join-Path $repoPath (Join-Path $RepoAgentDir 'output-styles')
+            $outputStylesTarget = Join-Path $AgentDir 'output-styles'
+            New-Item -ItemType Directory -Path $outputStylesTarget -Force | Out-Null
+
+            if (Test-Path $outputStylesSource)
+            {
+                Get-ChildItem -Path $outputStylesSource -File -Filter '*.md' | ForEach-Object {
+                    Copy-Item -Path $_.FullName -Destination $outputStylesTarget -Force
+                    $outputStyleCount++
+                }
+            }
+
+            Write-Ok "Installed $outputStyleCount output styles to $outputStylesTarget"
+        } else
+        {
+            Write-Warn 'Skipped output styles installation - note: remove output style from settings.json, if necessary'
+            $outputStylesSkipped = $true
+        }
     }
 
     # -------------------------------------------------------------------------
@@ -471,6 +510,16 @@ try
     } else
     {
         Write-Host "  Config:  $AgentDir"
+    }
+    if ($Agent -eq 'claude')
+    {
+        if ($outputStylesSkipped)
+        {
+            Write-Host '  Styles:  skipped'
+        } else
+        {
+            Write-Host "  Styles:  $outputStyleCount installed to $AgentDir/output-styles"
+        }
     }
     if ($Agent -eq 'pi')
     {

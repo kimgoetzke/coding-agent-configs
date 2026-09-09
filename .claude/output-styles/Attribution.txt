@@ -1,0 +1,12 @@
+Style: sane-prose.md
+Based on: https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing
+License: CC BY-SA 4.0
+Changes:
+- Converted points that I cared about into an output style instruction for Claude
+- Reworked from a descriptive field guide into a prescriptive output style
+- Each pattern is a bullet with sub-bullets giving an avoid/prefer example
+- Dropped literally everything else (i.e. 99%+)
+- Added a scope section excluding code, tool calls and verbatim content
+- Set keep-coding-instructions: true
+- Use British English
+Instructions: To use it, add "outputStyle": "Sane prose" to your settings.json
