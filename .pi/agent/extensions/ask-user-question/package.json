@@ -1,0 +1,13 @@
+{
+  "name": "pi-ask-user-question-extension",
+  "private": true,
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test --test-force-exit *.test.ts"
+  }
+}

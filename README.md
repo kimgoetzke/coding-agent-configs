@@ -127,6 +127,7 @@ If you use Pi, the starter extensions included in this repo are:
 | Extension                 | Purpose                                                                                              |
 | ------------------------- | ---------------------------------------------------------------------------------------------------- |
 | `active-mode`             | Support for `*-mode` skills: lifecycle behaviours and visual mode indicator                          |
+| `ask-user-question`       | Lets the agent ask explained multiple-choice questions with keyboard selection and optional comments |
 | `command-policy`          | Configurable allow/deny list for shell commands the agent may run                                    |
 | `conversation-statusline` | Shows session info in the Pi status line                                                             |
 | `footer-statusline`       | Improves the footer status line                                                                      |
