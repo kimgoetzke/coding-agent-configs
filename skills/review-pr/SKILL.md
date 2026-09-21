@@ -21,6 +21,19 @@ Used for individual findings and for dimension scores:
 - 🟡 **Yellow (Minor)**: real but minor — naming, small readability improvements, minor observability gaps. Does not block merge.
 - 🟢 **Green**: no issues. A **dimension score only** — no individual finding is ever green, because anything that trivial is discarded in triage.
 
+## Writing for a reader outside this repository
+
+This governs every word you write in the review document and in the GitHub comments — findings, summaries, rationales, diagram labels alike.
+
+Once you have read the code you can no longer tell which parts of your explanation only work for someone who has also read it. Assume the reader has not. The goal is that they can decide **whether they need to open the codebase at all** to agree or disagree with you — not that they must open it before your sentence parses.
+
+- **Say what the code is for before saying what is wrong with it.** A reader who does not know the purpose cannot tell which details matter. "Renaming a tenant used to 404 until the next restart" before "the loader keeps a second map keyed by the old alias".
+- **Name things by what they do in the world, then by symbol.** "the filter that rejects unauthenticated requests (`AuthFilter.java:52`)", not "the filter". This is the same rule step 7 applies to diagram nodes.
+- **Give every symbol a location on first mention.** Class, method, file, flag, table, environment variable: `path:line`, once, the first time it appears.
+- **Never coin a term.** Use the name the codebase already uses — grep for it rather than inventing one. No "ownership boundary", "the resolution layer", "the new flow" unless the repository says so.
+- **Make every claim checkable.** A line, an error string, a command, a number. An assertion the reader cannot verify is one they have to take on trust, which is exactly what this skill exists to avoid.
+- **Do not teach the language or the framework.** Context is a clause, not a preamble. No paragraph explaining dependency injection at the top of a Spring finding.
+
 ## Step 1: Check prerequisites
 
 Run `gh --version`. If `gh` is not found, tell the user it is required to fetch the PR or post anything back, and ask whether to continue regardless.
@@ -83,8 +96,9 @@ Every sub-agent prompt must include:
 
 **Evidence rules for sub-agents:**
 
-> Every finding you return MUST carry these three fields on top of the usual ones:
+> Every finding you return MUST carry these four fields on top of the usual ones:
 >
+> - **Context:** what the code you are reporting on is *for*, in one or two sentences a reader outside this repository would understand. Name the caller that reaches it and the user-facing operation it serves. Write "`resolve()` turns the tenant claim on an incoming login token into the tenant the request runs as; every authenticated API call passes through it", not "the tenant resolution method". You have the file open already, so this costs you nothing and is the difference between a review someone can act on and one they have to re-derive.
 > - **Evidence:** the specific code you read that supports the claim, cited as `path:line` — including code outside the diff (callers, callees, config, existing tests). A diff hunk on its own is not evidence that a problem is real; it is only where you started looking.
 > - **Trigger:** the concrete input, state, or sequence that makes the problem actually happen, and the wrong outcome it produces. For example "a request with a null `tenantId` reaches `resolve()` and throws an NPE at line 88", not "this could fail if the input is unexpected".
 > - **Holds if:** each assumption you could not verify yourself, one bullet apiece, phrased so someone else can check it. Write "nothing — verified in this repo" when there are none.
@@ -129,7 +143,7 @@ You may spawn sub-agents to help. Give each the findings and the diff with one i
 
 ## Step 7: Visualise each finding
 
-Reviews are read by people who do not know this repository. Give each surviving finding a **Mermaid diagram** that explains the problem to someone seeing the code for the first time, placed directly under the finding in the review document. Mermaid renders natively on GitHub and in most Markdown viewers, so this needs no extra file.
+Where prose alone leaves the path through the code hard to follow, give the finding a **Mermaid diagram** that explains the problem to someone seeing the code for the first time, placed directly under the finding in the review document. Mermaid renders natively on GitHub and in most Markdown viewers, so this needs no extra file.
 
 **Skip the diagram** where the finding is obvious at a glance from a single line or a small function — a wrong operator, an inverted condition, a naming nit, a missing null check on the line above. A diagram that only restates the code is noise. Most style and convention findings need none; most correctness, security and concurrency findings earn one.
 
@@ -170,29 +184,59 @@ Do not inflate: reserve red for true blockers, and do not push a genuine minor n
 
 Save to `{repo root}/.ai/review/{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}.md`, creating `.ai/review/` if needed. The title is kebab-case, truncated at a word boundary to 50 characters. For a re-review, update the existing file.
 
-**Finding format:**
+**Finding format.** Every finding opens with the same header line:
 
 ```text
-{severity emoji} **[{status}]** {⚠️ Conditional, if it is} — `path:line` — {the finding}. {the suggested fix, where one is obvious}.
+{severity emoji} **[{status}]** {⚠️ Conditional, if it is} — `path:line` — {headline}
 ```
 
-Any severity pairs with any status (`[New]`, `[Unresolved]`, `[Resolved]`) — a resolved finding keeps the severity it was first given, and on an initial review everything is `[New]`. The `path:line` is mandatory: it anchors the inline comment in step 10. The step 7 diagram, where the finding has one, goes last — after the finding text and after any `Holds if:` bullets.
+Any severity pairs with any status (`[New]`, `[Unresolved]`, `[Resolved]`) — a resolved finding keeps the severity it was first given, and on an initial review everything is `[New]`. The `path:line` is mandatory: it anchors the inline comment in step 10. The headline says what goes wrong in the reader's terms, not in the code's: "Tokens from the legacy issuer crash instead of returning 401", not "missing null check in `resolve()`".
 
-A **confirmed** finding folds its trigger into the sentence rather than labelling it, so the author can see the problem for themselves:
+What follows the header depends on the tier. **Red and amber take the full shape; yellow stays a single sentence.** A minor finding does not earn four headings, and a blocker is not something the author should have to reconstruct from one.
 
-```text
-🟠 **[New]** — `TenantResolver.java:88` — `resolve()` dereferences `tenantId` without a null check, so a token minted by the legacy issuer (which omits the claim, see `LegacyTokenFactory.java:34`) throws an NPE before the 401 is returned, surfacing as a 500. Guard the claim before dereferencing and return 401 when it is absent.
+**Red and amber — full shape.** Four labelled parts, in this order, each one to three sentences:
+
+````text
+🟠 **[New]** — `TenantResolver.java:88` — Tokens from the legacy issuer crash instead of returning 401
+
+**What this code does.** `resolve()` turns the tenant claim on a login token into the tenant a request runs as. Every authenticated API call reaches it through `AuthFilter` (`AuthFilter.java:52`).
+
+```java
+// TenantResolver.java:86-89
+var tenantId = claims.get("tenant_id");
+return tenantRepository.findBySlug(tenantId.toString());  // line 88 — no null check
 ```
 
-A **conditional** finding is marked, asks rather than asserts, and lists its surviving assumptions:
+**What goes wrong.** `LegacyTokenFactory` (`LegacyTokenFactory.java:34`) mints tokens without a `tenant_id` claim. Those reach line 88, `tenantId` is null, and the NPE escapes before the 401 is written, so the caller sees a 500 and the real reason for the rejection is lost.
+
+**How I checked.** `LegacyTokenFactory.java:34` omits the claim. Neither caller of `resolve()` null-checks first (`AuthFilter.java:52`, `TokenRefreshController.java:30`). No test covers a token without the claim (`TenantResolverTest.java`).
+
+**Suggested fix.** Guard the claim before dereferencing and return 401 when it is absent.
+````
+
+- **What this code does** comes from the sub-agent's `Context:` field, corrected against what you read in triage. State the purpose before the defect — a reader who does not know what the code is for cannot judge how much the defect matters.
+- **The code block** is 3 to 8 lines quoted from the file, with the offending line marked by a trailing comment. This is the cheapest of the four parts and the one that most often removes the need to open the repository at all. Skip it only when the finding is about something absent rather than present (a missing test file, a missing call).
+- **What goes wrong** is the verified `Trigger:` — the concrete input or sequence, and the outcome someone would actually observe. End on the user-visible or operator-visible consequence, not on the exception type.
+- **How I checked** is the verified `Evidence:` trail, as a short list of `path:line` with what each one establishes. This is the part that lets the reader decide whether to investigate: they can see which of these files would have to disagree with you for the finding to be wrong. Never omit it.
+- **Suggested fix** only where one is obvious. Leave it out rather than guessing.
+
+**Yellow — compact.** One sentence, with the purpose folded in as a clause rather than a heading:
 
 ```text
-🟡 **[New]** ⚠️ Conditional — `TenantResolver.java:88` — Should `resolve()` guard against a null `tenantId`? As written it would throw an NPE rather than return a 401.
+🟡 **[New]** — `TenantResolver.java:41` — The field holding the resolved tenant is named `t`; every other field on the class spells the noun out (`tenantRepository`, `tokenClaims`). Rename it `tenant`.
+```
+
+**Conditional findings** cap at yellow, so they use the compact form, but they are marked, ask rather than assert, and list their surviving assumptions:
+
+```text
+🟡 **[New]** ⚠️ Conditional — `TenantResolver.java:88` — `resolve()` turns the tenant claim on a login token into a tenant, and dereferences the claim without a null check. Should it guard? As written a token missing the claim would throw an NPE rather than return a 401.
 
 Holds if:
 
 - The legacy issuer is still minting tokens without the claim (I could not confirm whether it has been decommissioned).
 ```
+
+The step 7 diagram, where the finding has one, goes last — after everything above, and after any `Holds if:` bullets.
 
 **Document structure.** `{...}` marks a substitution; square brackets in status tags are literal.
 
@@ -212,9 +256,13 @@ last_reviewed_commit: "{latest commit hash on PR branch}"
 
 # PR Review: {title} (#{number})
 
-## Summary
+## What This PR Changes
 
-{2-3 sentence high-level assessment of the PR}
+{2-4 sentences: what the PR does and why, in terms someone outside this repository would understand. What behaviour changes for a user or an operator, which parts of the system it touches, and what the author says they were trying to achieve. No judgement here — this is the orientation the rest of the document assumes.}
+
+## Assessment
+
+{2-3 sentences: whether it does what it sets out to do, and what stands in the way of merging. Name the blockers and how many findings there are; the detail lives under the dimension headings.}
 
 ## Review Dimension Scores
 
@@ -277,7 +325,7 @@ Summarise for the user: findings by severity and dimension (noting how many are 
 
 **The review body** is a couple of sentences plus the score table — no finding detail, that lives in the inline comments. Never reference the local review file; it is not pushed, so the link is dead for everyone else. End with `---` and `This review was generated by {agent} {model}.` — the tool (e.g. Claude Code, GitHub Copilot, Pi) and the model (e.g. Opus 5, Sonnet 5); name the agent alone if unsure of the model.
 
-**Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the file. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets — the author is the one person who can settle the assumption.
+**Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the file. Drop only the quoted code block from a full-shape finding — GitHub already shows the anchored lines directly above the comment — and keep **What this code does**, **What goes wrong** and **How I checked** intact. They are what let a reviewer who did not write the code follow the thread. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets — the author is the one person who can settle the assumption.
 
 **How to post:** `gh pr review` cannot attach inline comments, so use the reviews API. Write the payload outside the working tree so it cannot be committed (e.g. `$(mktemp -t review-XXXXXX.json)`) and delete it afterwards:
 
