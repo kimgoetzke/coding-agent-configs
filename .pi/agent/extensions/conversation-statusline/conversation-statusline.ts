@@ -23,7 +23,7 @@ class ConversationStatuslineEditor extends CustomEditor {
     const originalBorderColor = this.borderColor;
 
     if (sessionName?.trim()) {
-      this.borderColor = (text: string) => renderLine(chromeTheme, text.length, { accent: true, fallbackRenderer: originalBorderColor });
+      this.borderColor = (text: string) => renderLine(chromeTheme, text.length, { sessionName, fallbackRenderer: originalBorderColor });
     }
 
     try {
