@@ -1,4 +1,4 @@
-# PR explanations: local-ai-folder-markdown
+# PR explanations: local-ai-folder-html
 
 Each explanation is an HTML file in the current repository.
 

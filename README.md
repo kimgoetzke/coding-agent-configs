@@ -93,11 +93,22 @@ Each skill is somewhat opinionated, but there is no prescribed workflow - they w
 
 ### Project folder structure
 
-Skills that persist work choose where to store it from a `persistence=` setting. They read `{repo root}/.ai/config` first, then `~/.ai/config`, and use `local-ai-folder-markdown` when neither sets it:
+Skills that persist work choose how to store it from settings in `~/.ai/config` and `{repo root}/.ai/config`, or fall back to the group's default value. `persistence=` sets the implementation for all skills; `persistence.{skill group}=` sets it for one skill group:
 
 ```
 persistence=local-ai-folder-markdown
+persistence.reviews=local-ai-folder-html
 ```
+
+| Skill group    | Skills                                                                                | Default                    |
+| -------------- | ------------------------------------------------------------------------------------- | -------------------------- |
+| `plans`        | `planning`, `planning-mode`, `fetch-plan`, `update-plan`, `improve-a-plan`, `persist` | `local-ai-folder-markdown` |
+| `research`     | `persist`, `research-mode`                                                            | `local-ai-folder-markdown` |
+| `insights`     | `aha`                                                                                 | `local-ai-folder-markdown` |
+| `reviews`      | `review-pr`                                                                           | `local-ai-folder-markdown` |
+| `explanations` | `explain-pr`                                                                          | `local-ai-folder-html`     |
+
+The first non-empty match wins, in this order: repo skill-group key, global skill-group key, repo `persistence=`, global `persistence=`, then the group's default. If a skill group has no implementation for the chosen value, its skills warn and use the group's default.
 
 With `local-ai-folder-markdown`, skills write under a `.ai/` directory at your project root. A project that uses these skills will accumulate a structure like this:
 

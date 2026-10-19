@@ -7,14 +7,14 @@ disable-model-invocation: true
 
 ## Persistence
 
-A persistence implementation decides where and how plans are stored. Before locating the plan, find the setting:
+This skill belongs to the `plans` skill group. A persistence implementation decides where and how plans are stored. Before locating the plan, find the setting:
 
 ```bash
-cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.plans=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
-- No output, or an empty value: use `local-ai-folder-markdown`
-- `persistence={value}`: use `{value}`. If `../planning/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folder-markdown`
+- No output: use `local-ai-folder-markdown`, the default for this skill group
+- `persistence.plans={value}` or `persistence={value}`: use `{value}`. If `../planning/persistence/{value}.md` does not exist, tell the user the `plans` skill group has no `{value}` implementation and use `local-ai-folder-markdown`
 
 Read `../planning/persistence/{implementation}.md` and follow it whenever this skill lists or opens a plan, or reads, writes or updates a planning document.
 

@@ -11,19 +11,23 @@ argument-hint: [topic to persist | empty to summarise the conversation so far]
 
 ## Persistence
 
-A persistence implementation decides where and how output is stored. Before Step 3, find the setting:
+A persistence implementation decides where and how output is stored. This skill writes to one of two skill groups, decided in Step 3:
+
+| Output                            | Skill group | Implementation file                           |
+| --------------------------------- | ----------- | --------------------------------------------- |
+| Research documents                | `research`  | `./persistence/{implementation}.md`           |
+| Documents inside an existing plan | `plans`     | `../planning/persistence/{implementation}.md` |
+
+Once Step 3 has picked the group, find the setting, replacing `{group}` with `research` or `plans`:
 
 ```bash
-cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.{group}=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
-- No output, or an empty value: use `local-ai-folder-markdown`
-- `persistence={value}`: use `{value}`. If the implementation file below for the store you write to does not exist for `{value}`, tell the user the value is unknown and use `local-ai-folder-markdown`
+- No output: use `local-ai-folder-markdown`, the default for both skill groups
+- `persistence.{group}={value}` or `persistence={value}`: use `{value}`. If the group's implementation file does not exist for `{value}`, tell the user the `{group}` skill group has no `{value}` implementation and use `local-ai-folder-markdown`
 
-Read only the implementation file for the store you write to, and follow it whenever this skill creates or updates a document:
-
-- Research documents: `./persistence/{implementation}.md`
-- Documents inside an existing plan: `../planning/persistence/{implementation}.md`
+Read only that group's implementation file, and follow it whenever this skill creates or updates a document.
 
 ## Workflow
 

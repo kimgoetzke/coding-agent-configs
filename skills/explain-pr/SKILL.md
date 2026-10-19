@@ -234,14 +234,14 @@ For every stop in the chosen plan, slice the file's diff from the full PR diff f
 
 Then load the template at `{skill dir}/templates/explain-pr.html.tmpl` and substitute the placeholders below. Write the result as the explanation `{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}`, where `{pr-title-abbreviated}` is the PR title in kebab-case, truncated to a max of 50 characters at a word boundary.
 
-A persistence implementation decides where and how the explanation is stored. Before writing it, find the setting:
+This skill belongs to the `explanations` skill group. A persistence implementation decides where and how the explanation is stored. Before writing it, find the setting:
 
 ```bash
-cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.explanations=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
-- No output, or an empty value: use `local-ai-folder-markdown`
-- `persistence={value}`: use `{value}`. If `{skill dir}/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folder-markdown`
+- No output: use `local-ai-folder-html`, the default for this skill group
+- `persistence.explanations={value}` or `persistence={value}`: use `{value}`. If `{skill dir}/persistence/{value}.md` does not exist, tell the user the `explanations` skill group has no `{value}` implementation and use `local-ai-folder-html`
 
 Read `{skill dir}/persistence/{implementation}.md` and follow it to write the explanation.
 

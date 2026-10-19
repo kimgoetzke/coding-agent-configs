@@ -20,14 +20,14 @@ Each insight is identified by `{yyyy-mm-dd}`, its creation date, and `{succinct-
 
 ## Persistence
 
-A persistence implementation decides where and how insights are stored. Before creating or listing insights, find the setting:
+This skill belongs to the `insights` skill group. A persistence implementation decides where and how insights are stored. Before creating or listing insights, find the setting:
 
 ```bash
-cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.insights=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
-- No output, or an empty value: use `local-ai-folder-markdown`
-- `persistence={value}`: use `{value}`. If `./persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folder-markdown`
+- No output: use `local-ai-folder-markdown`, the default for this skill group
+- `persistence.insights={value}` or `persistence={value}`: use `{value}`. If `./persistence/{value}.md` does not exist, tell the user the `insights` skill group has no `{value}` implementation and use `local-ai-folder-markdown`
 
 Read `./persistence/{implementation}.md` and follow it whenever this skill creates, lists or reads an insight.
 

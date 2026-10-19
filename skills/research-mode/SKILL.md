@@ -27,14 +27,14 @@ If you cannot determine which tool you are, ask the user.
 
 ## Persistence
 
-A persistence implementation decides where and how research documents are stored. The `persist` skill creates them; this skill lists, opens and updates them. Before Step 3c or Step 4, find the setting:
+This skill belongs to the `research` skill group. A persistence implementation decides where and how research documents are stored. The `persist` skill creates them; this skill lists, opens and updates them. Before Step 3c or Step 4, find the setting:
 
 ```bash
-cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.research=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
-- No output, or an empty value: use `local-ai-folder-markdown`
-- `persistence={value}`: use `{value}`. If `../persist/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folder-markdown`
+- No output: use `local-ai-folder-markdown`, the default for this skill group
+- `persistence.research={value}` or `persistence={value}`: use `{value}`. If `../persist/persistence/{value}.md` does not exist, tell the user the `research` skill group has no `{value}` implementation and use `local-ai-folder-markdown`
 
 Read `../persist/persistence/{implementation}.md` and follow it whenever this skill lists, opens or updates a research document. The `.ai/.active-mode` flag file is not part of this and always stays in the repository.
 
