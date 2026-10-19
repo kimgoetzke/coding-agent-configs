@@ -48,7 +48,7 @@ test("session_start clears stale mode files for fresh sessions", async () => {
   const pi = createPi();
   activeModeExtension(pi as any);
 
-  await writeFile(flagFile, "mode: planning\nfolder: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
+  await writeFile(flagFile, "mode: planning\nlocation: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
 
   await pi.handlers.get("session_start")?.({ reason: "startup" }, { cwd, hasUI: true, ui });
 
@@ -96,7 +96,7 @@ test("session_start renders a tiny status badge when theme helpers are available
   const pi = createPi();
   activeModeExtension(pi as any);
 
-  await writeFile(flagFile, "mode: planning\nfolder: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
+  await writeFile(flagFile, "mode: planning\nlocation: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
 
   await pi.handlers.get("session_start")?.({ reason: "reload" }, { cwd, hasUI: true, ui });
 
@@ -113,7 +113,7 @@ test("context injects a planning reminder before each model call", async () => {
   const pi = createPi();
   activeModeExtension(pi as any);
 
-  await writeFile(flagFile, "mode: planning\nfolder: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
+  await writeFile(flagFile, "mode: planning\nlocation: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
 
   const result = await pi.handlers.get("context")?.({ messages: [] }, { cwd, hasUI: false });
 
@@ -122,6 +122,38 @@ test("context injects a planning reminder before each model call", async () => {
   assert.equal(result.messages[0].display, false);
   assert.match(result.messages[0].content, /^\[Active planning mode\]/);
   assert.match(result.messages[0].content, /Update planning docs in '.*demo-plan'/);
+  rmSync(cwd, { recursive: true, force: true });
+});
+
+test("before_agent_start appends the plan location to the system prompt", async () => {
+  const cwd = await createProject();
+  const flagFile = join(cwd, ".ai", ".active-mode");
+  const pi = createPi();
+  activeModeExtension(pi as any);
+
+  await writeFile(flagFile, "mode: planning\nlocation: /tmp/demo-plan\nstarted: 2026-05-03 10:00\n", "utf8");
+
+  const result = await pi.handlers.get("before_agent_start")?.(
+    { systemPrompt: "Base prompt", prompt: "Plan the work", images: [] },
+    { cwd, hasUI: false },
+  );
+
+  assert.match(result.systemPrompt, /Active planning mode is enabled/);
+  assert.match(result.systemPrompt, /Plan location: \/tmp\/demo-plan/);
+  rmSync(cwd, { recursive: true, force: true });
+});
+
+test("context asks for the plan, not a folder, while the plan location is pending", async () => {
+  const cwd = await createProject();
+  const flagFile = join(cwd, ".ai", ".active-mode");
+  const pi = createPi();
+  activeModeExtension(pi as any);
+
+  await writeFile(flagFile, "mode: planning\nlocation: (pending)\nstarted: 2026-05-03 10:00\n", "utf8");
+
+  const result = await pi.handlers.get("context")?.({ messages: [] }, { cwd, hasUI: false });
+
+  assert.match(result.messages[0].content, /Create the plan and planning documents when ready/);
   rmSync(cwd, { recursive: true, force: true });
 });
 

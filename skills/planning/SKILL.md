@@ -6,18 +6,29 @@ argument-hint: [the work to plan]
 
 # Planning
 
-## Planning folder
+## Persistence
 
-- Any plan must be stored in `{repo root}/.ai/planning/{yyyy-mm-dd} {task-name}/` - where:
-  - `{repo root}` is the root of the current repository
-  - `{yyyy-mm-dd}` is the date of the plan creation
-  - `{task-name}` is an extremely succinct name for the task in kebab-case
+A persistence implementation decides where and how plans are stored. Before creating or updating a plan, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+```
+
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `./persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `./persistence/{implementation}.md` and follow it whenever this skill creates a plan or reads, writes or updates a planning document.
+
+Every plan is identified by:
+
+- `{yyyy-mm-dd}`, the date of the plan creation
+- `{task-name}`, an extremely succinct name for the task in kebab-case
 
 ## Planning files
 
-Use persistent markdown files as your "working memory on disk." Context windows are volatile and limited; anything important gets written to disk.
+Use persistent markdown documents as your working memory. Context windows are volatile and limited; anything important gets persisted.
 
-- For any plan, you must create the following files in the plan folder:
+- For any plan, you must create the following documents in the plan:
   - **plan.md** — Track work breakdown and progress
   - **questions.md** — Track your questions and the user's responses and vice versa
   - **findings.md** — Store research and discoveries
@@ -41,7 +52,7 @@ If you decide or are expected to produce a plan, follow the steps outlined in th
 
 - Gather requirements from the user's request
 - Derive `{task-name}` — an extremely succinct name for the task, use kebab-case e.g. `refactor-mfa-flow`
-- Create the plan folder and `findings.md` following the template: [templates/findings.md](./templates/findings.md)
+- Create the plan and its `findings.md` following the template: [templates/findings.md](./templates/findings.md)
 - Explore the codebase to understand the scope of the change
 - Document findings in `findings.md` as you go
 

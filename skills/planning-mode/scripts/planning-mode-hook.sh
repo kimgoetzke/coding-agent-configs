@@ -20,12 +20,12 @@ FLAG_FILE="$REPO_ROOT/.ai/.active-mode"
 MODE=$(grep "^mode:" "$FLAG_FILE" 2>/dev/null | cut -d' ' -f2-)
 [ "$MODE" != "planning" ] && exit 0
 
-FOLDER=$(grep "^folder:" "$FLAG_FILE" 2>/dev/null | cut -d' ' -f2-)
+LOCATION=$(grep "^location:" "$FLAG_FILE" 2>/dev/null | cut -d' ' -f2-)
 
-if [ -z "$FOLDER" ] || [ "$FOLDER" = "(pending)" ]; then
-  MESSAGE="[Planning mode] Create the plan folder and planning documents when ready"
+if [ -z "$LOCATION" ] || [ "$LOCATION" = "(pending)" ]; then
+  MESSAGE="[Planning mode] Create the plan and planning documents when ready"
 else
-  MESSAGE="[Planning mode] Update planning docs in '$FOLDER' when you have new findings"
+  MESSAGE="[Planning mode] Update planning docs in '$LOCATION' when you have new findings"
 fi
 
 if [ "$FORMAT" = "copilot" ]; then

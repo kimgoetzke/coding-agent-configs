@@ -61,7 +61,7 @@ type ActiveModeState = {
   path: string;
   root: string;
   mode: string;
-  folder?: string;
+  location?: string;
   topic?: string;
   document?: string;
   started?: string;
@@ -70,10 +70,10 @@ type ActiveModeState = {
 
 function summariseTarget(state: ActiveModeState): string {
   if (state.mode === "planning") {
-    if (isPending(state.folder)) {
+    if (isPending(state.location)) {
       return "pending";
     }
-    return summarisePath(state.folder || "");
+    return summarisePath(state.location || "");
   }
 
   if (state.mode === "research") {
@@ -89,8 +89,8 @@ function summariseTarget(state: ActiveModeState): string {
   if (!isPending(state.document)) {
     return summarisePath(state.document || "");
   }
-  if (!isPending(state.folder)) {
-    return summarisePath(state.folder || "");
+  if (!isPending(state.location)) {
+    return summarisePath(state.location || "");
   }
   if (!isPending(state.topic)) {
     return state.topic || "";
@@ -111,7 +111,7 @@ async function loadActiveMode(startDir: string): Promise<ActiveModeState | undef
     path,
     root: dirname(dirname(path)),
     mode: fields.mode || "unknown",
-    folder: fields.folder,
+    location: fields.location,
     topic: fields.topic,
     document: fields.document,
     started: fields.started,
@@ -150,17 +150,17 @@ function buildStatusValue(state: ActiveModeState | undefined, theme: { fg?: (tok
 }
 
 function buildPlanningReminder(state: ActiveModeState): string {
-  if (isPending(state.folder)) {
+  if (isPending(state.location)) {
     return [
       "[Active planning mode]",
-      "Create the plan folder and planning documents when ready.",
+      "Create the plan and planning documents when ready.",
       "Say whether you updated the planning docs or no update was needed.",
     ].join("\n");
   }
 
   return [
     "[Active planning mode]",
-    `Update planning docs in '${state.folder}' when new findings change them.`,
+    `Update planning docs in '${state.location}' when new findings change them.`,
     "Say whether you updated them or no update was needed.",
   ].join("\n");
 }
@@ -203,7 +203,7 @@ function buildReminder(state: ActiveModeState): string {
 function buildPlanningSystemPrompt(state: ActiveModeState): string {
   const lines = [
     "Active planning mode is enabled.",
-    isPending(state.folder) ? "Plan folder: pending" : `Plan folder: ${state.folder}`,
+    isPending(state.location) ? "Plan location: pending" : `Plan location: ${state.location}`,
     "Keep the planning documents up to date when findings materially change them.",
     "Update plan.md, findings.md, questions.md, and progress.md as applicable.",
     "Do not update them for no reason.",
@@ -230,7 +230,7 @@ function buildGenericSystemPrompt(state: ActiveModeState): string {
   const lines = [
     `Active ${state.mode} mode is enabled.`,
     !isPending(state.topic) ? `Topic: ${state.topic}` : undefined,
-    !isPending(state.folder) ? `Folder: ${state.folder}` : undefined,
+    !isPending(state.location) ? `Location: ${state.location}` : undefined,
     !isPending(state.document) ? `Document: ${state.document}` : undefined,
     "Keep the mode artefacts on disk up to date when findings materially change them.",
     "Do not update them for no reason.",

@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension red-amber-yellow-green, and produce a structured review saved to disk and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
+description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension red-amber-yellow-green, and produce a structured review that is persisted and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
 argument-hint: [PR number or URL | empty to detect the PR for the current branch]
 ---
 
@@ -63,14 +63,27 @@ This confirms the PR exists. Also collect:
 - Date and time: `date '+%Y-%m-%d %H:%M:%S %Z'`
 - Repository slug: `gh repo view --json nameWithOwner --jq '.nameWithOwner'` — the `{owner/repo}` used in the frontmatter and in step 10's API path
 
+## Persistence
+
+A persistence implementation decides where and how reviews are stored. Before step 4, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+```
+
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `./persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `./persistence/{implementation}.md` and follow it whenever this skill finds, creates or updates a review.
+
 ## Step 4: Check for existing review
 
-Search `{repo root}/.ai/review/* {pr-number} *.md` — the number is a whole space-delimited field, so a bare `*{pr-number}*` glob would also match dates. On multiple matches, take the one whose `pr_number` frontmatter matches.
+Find an existing review for the PR number. On multiple matches, take the one whose `pr_number` frontmatter matches.
 
 **If a review exists**, compare its `last_reviewed_commit` against the latest commit from step 3:
 
 - **Equal** — tell the user the PR is already reviewed up to the latest commit, and ask whether to review again anyway. If not, stop.
-- **Different** — this is a re-review: scope the diff in step 5 to the new commits, and update the existing file rather than creating one.
+- **Different** — this is a re-review: scope the diff in step 5 to the new commits, and update the existing review rather than creating one.
 
 ## Step 5: Analyse the diff
 
@@ -180,9 +193,9 @@ Give each dimension — correctness & logic, security, tests, style & convention
 
 Do not inflate: reserve red for true blockers, and do not push a genuine minor nit up to amber because it is the only finding. Conditional findings cap at yellow, so a dimension whose findings are all conditional cannot score amber or red.
 
-## Step 9: Write the review to disk
+## Step 9: Persist the review
 
-Save to `{repo root}/.ai/review/{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}.md`, creating `.ai/review/` if needed. The title is kebab-case, truncated at a word boundary to 50 characters. For a re-review, update the existing file.
+Create the review `{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}`, where `{pr-title-abbreviated}` is the PR title in kebab-case, truncated at a word boundary to 50 characters. For a re-review, update the existing review.
 
 **Finding format.** Every finding opens with the same header line:
 
@@ -308,23 +321,23 @@ Under each dimension heading, list that dimension's findings in the format above
 
 ## Step 10: Present findings and, on sign-off, post to GitHub
 
-Summarise for the user: findings by severity and dimension (noting how many are conditional), the tier per dimension, the skills used, the most important findings blockers-first, and the path to the review file. Ask whether they want to discuss a finding or post to the PR — and say how many findings posting would cover, since yellow ones are held back by default: "Posting would add 4 inline comments; the 3 minor findings stay in the file unless you want those too."
+Summarise for the user: findings by severity and dimension (noting how many are conditional), the tier per dimension, the skills used, the most important findings blockers-first, and the review's location. Ask whether they want to discuss a finding or post to the PR — and say how many findings posting would cover, since yellow ones are held back by default: "Posting would add 4 inline comments; the 3 minor findings stay in the file unless you want those too."
 
 **Close the summary with a conversation-name recommendation** — one line, last thing in the message. The name is `review-pr-{pr-number}-{pr-title-abbreviated}`, reusing the abbreviation from the step 9 file name — e.g. `review-pr-422-improve-explain-pr-and-review-pr-skills`.
 
 - **Claude Code or Pi**: recommend "You can run `/name review-pr-{pr-number}-{pr-title-abbreviated}` to name this conversation."
 - **Any other agent**: recommend "Consider renaming this conversation to `review-pr-{pr-number}-{pr-title-abbreviated}` if your tool supports it."
 
-**Posting requires explicit user sign-off — no exceptions.** Writing to disk is always allowed; posting is not, and producing the review is not permission to publish it. Sign-off counts if the user asked for posting when invoking the skill. Otherwise stop after presenting and wait. If in doubt, do not post.
+**Posting requires explicit user sign-off — no exceptions.** Persisting the review is always allowed; posting is not, and producing the review is not permission to publish it. Sign-off counts if the user asked for posting when invoking the skill. Otherwise stop after presenting and wait. If in doubt, do not post.
 
 **If (and only if) the user has signed off:**
 
-- **Post 🔴 red and 🟠 amber findings only, by default.** 🟡 yellow findings stay in the review file on disk and are not posted.
+- **Post 🔴 red and 🟠 amber findings only, by default.** 🟡 yellow findings stay in the persisted review and are not posted.
 - **Post yellow as well only when the user asks for it**, in words like "post everything", "include the minor ones" or "all findings". Asking you to post is not asking you to post yellow: when the instruction is a bare "post it", the default holds
 - With nothing to post, post the body alone
 - Never use `--request-changes`, even for blockers — the event is always `COMMENT`
 
-**The review body** is a couple of sentences plus the score table — no finding detail, that lives in the inline comments. Never reference the local review file; it is not pushed, so the link is dead for everyone else. End with `---` and `This review was generated by {agent} {model}.` — the tool (e.g. Claude Code, GitHub Copilot, Pi) and the model (e.g. Opus 5, Sonnet 5); name the agent alone if unsure of the model.
+**The review body** is a couple of sentences plus the score table — no finding detail, that lives in the inline comments. Never reference the persisted review; other readers of the PR may not be able to open it. End with `---` and `This review was generated by {agent} {model}.` — the tool (e.g. Claude Code, GitHub Copilot, Pi) and the model (e.g. Opus 5, Sonnet 5); name the agent alone if unsure of the model.
 
 **Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the file. Drop only the quoted code block from a full-shape finding — GitHub already shows the anchored lines directly above the comment — and keep **What this code does**, **What goes wrong** and **How I checked** intact. They are what let a reviewer who did not write the code follow the thread. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets, because the author is the one person who can settle the assumption.
 

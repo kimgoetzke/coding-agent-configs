@@ -25,6 +25,19 @@ Claude Code and Copilot support the bundled `PostToolUse` and `SessionStart` hoo
 
 If you cannot determine which tool you are, ask the user.
 
+## Persistence
+
+A persistence implementation decides where and how research documents are stored. The `persist` skill creates them; this skill lists, opens and updates them. Before Step 3c or Step 4, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+```
+
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `../persist/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `../persist/persistence/{implementation}.md` and follow it whenever this skill lists, opens or updates a research document. The `.ai/.active-mode` flag file is not part of this and always stays in the repository.
+
 ## Workflow
 
 ### Step 1: Check hook configuration
@@ -74,46 +87,45 @@ Parse the arguments:
    ```
    If it already exists (from Step 3a), update the `topic:` line.
 2. Invoke the `persist` skill to begin researching the topic.
-3. After the `persist` skill creates the research document, update the flag file's `document:` line with the file path.
-4. Confirm to the user: "Research mode is on. I'll keep updating {document path} as we go. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
-5. If running in Copilot, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
-6. If running in Claude Code or Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+3. After the `persist` skill creates the research document, update the flag file's `document:` line with the document's location.
+4. Confirm to the user: "Research mode is on. I'll keep updating {document location} as we go. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
+5. If running in Copilot, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document's `{topic}`.
+6. If running in Claude Code or Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document's `{topic}`.
 
 ### Step 3c: Continue an existing research doc
 
-1. List markdown files in `{repo root}/.ai/research/`.
-   - If the directory is missing or contains no `.md` files, stop and tell the user: "No existing research docs found in `.ai/research/`. Use `/research-mode <topic>` to start a new one."
-   - On Windows, if Glob fails to list the directory, fall back to `ls "{repo root}/.ai/research/"` via Bash.
-2. Sort newest first (the `{yyyy-mm-dd}` filename prefix sorts correctly lexicographically).
-3. Show the filenames exactly as stored in a numbered list. Example:
+1. List research documents.
+   - If there are none, stop and tell the user: "No existing research docs found. Use `/research-mode <topic>` to start a new one."
+2. Sort newest first.
+3. Show the document names exactly as stored in a numbered list. Example:
    ```
    1. 2026-04-10 auth-middleware-analysis.md
    2. 2026-04-08 retry-strategies.md
    ```
-4. Prompt the user to reply with either the list number or the filename.
+4. Prompt the user to reply with either the list number or the document name.
 5. Resolve the selection:
    - If the input is a number, resolve it against the numbered list.
-   - If the input is text, try exact filename match first (with or without `.md` suffix).
+   - If the input is text, try exact document-name match first (with or without `.md` suffix).
    - If no exact match, allow a single unambiguous case-insensitive partial match.
    - If the input is invalid, ambiguous, or out of range, stop and tell the user the selection was invalid. Do not re-prompt.
-6. Read the selected document so its contents are in context.
-7. Derive `{topic}` from the filename by removing the `{yyyy-mm-dd} ` prefix and `.md` suffix.
+6. Open the selected document so its contents are in context.
+7. Derive `{topic}` from the document name by removing the `{yyyy-mm-dd} ` prefix and any `.md` suffix.
 8. Create `{repo root}/.ai/.active-mode` with:
    ```
    mode: research
    topic: {topic}
-   document: {full path to the selected doc}
+   document: {location of the selected doc}
    started: {yyyy-mm-dd HH:mm}
    ```
-9. Confirm to the user: "Research mode is on. Continuing `{document path}`. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
-10. If running in Copilot, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
-11. If running in Claude Code or Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is the document filename with the date prefix and `.md` suffix removed.
+9. Confirm to the user: "Research mode is on. Continuing `{document location}`. Use `/research-mode off` when done. Research mode will be auto-disabled by starting a new session when supported by your harness configuration."
+10. If running in Copilot, also include in the confirmation: "You can run `/rename {task-name}` to rename this conversation." where `{task-name}` is `{topic}`.
+11. If running in Claude Code or Pi, instead include: "You can run `/name {task-name}` to name this conversation." where `{task-name}` is `{topic}`.
 
 ### Step 4: Keep the research document updated
 
 While research mode is active, if your harness has `PostToolUse` hook support configured, the hook outputs reminders after each tool use. When you see these reminders:
 
-- If you've learned something new since the last update, update the research document on disk
+- If you've learned something new since the last update, update the research document
 - If you haven't learned anything new, carry on — don't update for the sake of it
 - Keep the document well-structured: add new sections, refine conclusions, note contradictions
 

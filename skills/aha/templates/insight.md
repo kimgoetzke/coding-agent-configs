@@ -39,4 +39,4 @@ tags: [{optional extra tags in kebab-case}]
 
 ## Related insights
 
-- {Optional: link to other `.ai/insight/` files this connects to, by filename}
+- {Optional: link to other insights this connects to, by name}

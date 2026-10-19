@@ -1,18 +1,31 @@
 ---
 name: improve-a-plan
 description: Review, criticise and/or test an existing plan with the goal of improving is. Use when user asks you to review or improve a plan.
-argument-hint: [full or partial folder name | empty to resolve from context]
+argument-hint: [full or partial plan name | empty to resolve from context]
 disable-model-invocation: true
 ---
+
+## Persistence
+
+A persistence implementation decides where and how plans are stored. Before locating the plan, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+```
+
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `../planning/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `../planning/persistence/{implementation}.md` and follow it whenever this skill lists or opens a plan, or reads, writes or updates a planning document.
 
 ## Phase 1: Locate the plan
 
 Resolve the target plan using the first matching strategy:
 
-1. **Context inference** — check your conversation context for a plan folder path from a prior `planning-mode` or `planning` skill invocation in this session. If found, use it directly and confirm with the user (e.g. "Improving plan `2026-03-24 auth refactor` — correct?"). Proceed on confirmation; if the user says no, fall through to the next strategy.
-2. **User argument** — if the user provided an argument, resolve it as a number or folder name against the folders inside `{repo root}/.ai/planning/` e.g. `{repo root}/.ai/planning/2026-01-20 improve-mfa-flow/`. Do not read the contents of any plan folders until the plan has been resolved.
-3. **Single plan** — if only one plan folder exists, select it automatically.
-4. **Multiple plans** — list folders newest first in a numbered list and ask the user to choose. Do not read the contents of any plan folder until the plan has been resolved.
+1. **Context inference** — check your conversation context for a plan location from a prior `planning-mode` or `planning` skill invocation in this session. If found, use it directly and confirm with the user (e.g. "Improving plan `2026-03-24 auth refactor` — correct?"). Proceed on confirmation; if the user says no, fall through to the next strategy.
+2. **User argument** — if the user provided an argument, resolve it as a number or plan name against the listed plans e.g. `2026-01-20 improve-mfa-flow`. Do not read any plan documents until the plan has been resolved.
+3. **Single plan** — if only one plan exists, select it automatically.
+4. **Multiple plans** — list plans newest first in a numbered list and ask the user to choose. Do not read any plan documents until the plan has been resolved.
 5. **No plans** — tell the user no plans were found and suggest creating one with the `planning-mode` or `planning` skill.
 
 ## Phase 2: Improve the plan

@@ -1,7 +1,7 @@
 ---
 name: update-plan
 description: Updates planning documents created using the planning-mode or planning skill after questions.md has been updated by the user. Supports an interactive `ask` mode that prompts the user for any still-unanswered questions in real-time. Use when user asks to update the plan after answering your questions, or when they want to walk through unanswered questions interactively.
-argument-hint: [full or partial folder name when no context | empty when plan in context | 'ask' for interactive mode in context]
+argument-hint: [full or partial plan name when no context | empty when plan in context | 'ask' for interactive mode in context]
 ---
 
 # Update Plan from User Responses
@@ -10,7 +10,7 @@ Process user responses in `questions.md` and update all related planning documen
 
 ## Prerequisites
 
-- A plan must already exist under `{repo root}/.ai/planning/` created by the `planning` or `planning-mode` skills
+- A plan created by the `planning` or `planning-mode` skills must already exist
 - For default (non-`ask`) mode: the plan's `questions.md` must contain at least one question with a non-empty `### Response` section
 - For `ask` mode: the plan's `questions.md` must contain at least one unprocessed question (with or without a response)
 
@@ -18,27 +18,40 @@ Process user responses in `questions.md` and update all related planning documen
 
 The skill takes a single optional argument:
 
-- If the argument is the literal string `ask` (case-insensitive, trimmed) → enable **ask mode** and locate the plan via the Phase 1 strategies below (folder is not specified separately).
-- If the argument is anything else → treat it as a folder name (existing behaviour).
-- If the argument is empty → no mode flag and no folder; fall through to the Phase 1 strategies.
+- If the argument is the literal string `ask` (case-insensitive, trimmed) → enable **ask mode** and locate the plan via the Phase 1 strategies below (plan is not specified separately).
+- If the argument is anything else → treat it as a plan name (existing behaviour).
+- If the argument is empty → no mode flag and no plan name; fall through to the Phase 1 strategies.
 
-`ask` is standalone — it cannot be combined with a folder name on the same invocation. If the user needs ask mode against a specific plan in a multi-plan repo, the Phase 1 multi-plan prompt will let them choose.
+`ask` is standalone — it cannot be combined with a plan name on the same invocation. If the user needs ask mode against a specific plan in a multi-plan repo, the Phase 1 multi-plan prompt will let them choose.
 
 Throughout the rest of this skill, **ask mode** refers specifically to the case where the argument was `ask`.
+
+## Persistence
+
+A persistence implementation decides where and how plans are stored. Before locating the plan, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+```
+
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `../planning/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `../planning/persistence/{implementation}.md` and follow it whenever this skill lists or opens a plan, or reads, writes or updates a planning document.
 
 ## Phase 1: Locate the plan
 
 Resolve the target plan using the first matching strategy:
 
-1. **Context inference** — check your conversation context for a plan folder path from a prior `planning-mode`/`planning` skill invocation in this session. If found, use it directly and confirm with the user (e.g. "Updating plan `2026-03-24 auth refactor` — correct?"). Proceed on confirmation; if the user says no, fall through to the next strategy.
-2. **User argument** — if the user provided a non-`ask` argument, resolve it as a folder name against folders inside `{repo root}/.ai/planning/`. (The `ask` keyword is a mode flag, not a folder name — see "Argument parsing" above.)
-3. **Single plan** — if only one plan folder exists, select it automatically.
-4. **Multiple plans** — list folders newest first in a numbered list and ask the user to choose.
+1. **Context inference** — check your conversation context for a plan location from a prior `planning-mode`/`planning` skill invocation in this session. If found, use it directly and confirm with the user (e.g. "Updating plan `2026-03-24 auth refactor` — correct?"). Proceed on confirmation; if the user says no, fall through to the next strategy.
+2. **User argument** — if the user provided a non-`ask` argument, resolve it as a plan name against the listed plans. (The `ask` keyword is a mode flag, not a plan name — see "Argument parsing" above.)
+3. **Single plan** — if only one plan exists, select it automatically.
+4. **Multiple plans** — list plans newest first in a numbered list and ask the user to choose.
 5. **No plans** — tell the user no plans were found and suggest creating one with the `planning-mode` or `planning` skills.
 
 ## Phase 2: Read all planning documents
 
-Read the following files from the selected plan folder (skip any that don't exist):
+Open the selected plan and read the following documents (skip any that don't exist):
 
 1. `questions.md`
 2. `plan.md`

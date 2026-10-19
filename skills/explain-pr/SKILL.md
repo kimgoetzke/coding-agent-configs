@@ -46,7 +46,7 @@ gh pr diff {number}
 
 Use these permalinks **everywhere a file path is mentioned to the user** — scope listings, walkthrough plan stops, stop headings, HTML output — so the user can click straight to the pinned source.
 
-**Recommend a conversation name.** The walk is long, so get this out of the way now: open your first message to the user with a one-line naming recommendation, then carry straight on with Step 2 — do not wait for a reply. The name is `explain-pr-{number}-{pr-title-abbreviated}`, where `{pr-title-abbreviated}` is the same abbreviation used for the output file name in Step 7 (the PR title in kebab-case, truncated to a max of 50 characters at a word boundary) — e.g. `explain-pr-422-improve-explain-pr-and-review-pr-skills`.
+**Recommend a conversation name.** The walk is long, so get this out of the way now: open your first message to the user with a one-line naming recommendation, then carry straight on with Step 2 — do not wait for a reply. The name is `explain-pr-{number}-{pr-title-abbreviated}`, where `{pr-title-abbreviated}` is the same abbreviation used for the explanation name in Step 7 (the PR title in kebab-case, truncated to a max of 50 characters at a word boundary) — e.g. `explain-pr-422-improve-explain-pr-and-review-pr-skills`.
 
 - **Claude Code or Pi**: recommend "You can run `/name explain-pr-{number}-{pr-title-abbreviated}` to name this conversation."
 - **Any other agent**: recommend "Consider renaming this conversation to `explain-pr-{number}-{pr-title-abbreviated}` if your tool supports it."
@@ -232,13 +232,18 @@ By the end of Step 4 you have: PR metadata, the four intro sections (description
 
 For every stop in the chosen plan, slice the file's diff from the full PR diff fetched in Step 1 — split on lines matching `^diff --git a/.* b/.*` and pick the section(s) for the file(s) at this stop.
 
-Then load the template at `{skill dir}/templates/explain-pr.html.tmpl` and substitute the placeholders below. Output to:
+Then load the template at `{skill dir}/templates/explain-pr.html.tmpl` and substitute the placeholders below. Write the result as the explanation `{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}`, where `{pr-title-abbreviated}` is the PR title in kebab-case, truncated to a max of 50 characters at a word boundary.
 
-```
-{repo root}/.ai/review/{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}.html
+A persistence implementation decides where and how the explanation is stored. Before writing it, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
 ```
 
-Where `{pr-title-abbreviated}` is the PR title in kebab-case, truncated to a max of 50 characters at a word boundary. Create `.ai/review/` if it doesn't exist. If a file with that name already exists, overwrite it.
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `{skill dir}/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `{skill dir}/persistence/{implementation}.md` and follow it to write the explanation.
 
 ### Placeholders
 
@@ -410,7 +415,7 @@ For an extension not listed, use the matching highlight.js id if you know it, ot
 
 ### After writing
 
-Print one line to the user with the absolute path of the file you created. Do not offer `/review-pr` and do not print any of the document content.
+Print one line to the user with the explanation's location. Do not offer `/review-pr` and do not print any of the document content.
 
 ## Important notes
 

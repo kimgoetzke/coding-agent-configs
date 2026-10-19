@@ -1,65 +1,73 @@
 ---
 name: fetch-plan
-description: Retrieve saved plan folders from `.ai/planning`, let the user choose one, then load its planning documents and summarise implementation status. Use when user asks to fetch, reopen, resume, continue, or inspect an existing plan.
-argument-hint: [empty to list available | full or partial folder name]
+description: Retrieve saved plans, let the user choose one, then load its planning documents and summarise implementation status. Use when user asks to fetch, reopen, resume, continue, or inspect an existing plan.
+argument-hint: [empty to list available | full or partial plan name]
 ---
 
 # Fetch a Saved Plan
 
-Use this skill to reopen an existing plan created with the `planning-mode`/`planning` skill's folder structure.
+Use this skill to reopen an existing plan created with the `planning-mode` or `planning` skill.
 
-## Storage layout
+## Persistence
 
-- Plans live under `{repo root}/.ai/planning/`
-- Each plan folder is named `{yyyy-mm-dd} {task name}`
-- A selected plan may contain:
-  - `plan.md`
-  - `progress.md`
-  - `findings.md`
-  - `questions.md`
+A persistence implementation decides where and how plans are stored. Before listing or opening plans, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+```
+
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `../planning/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `../planning/persistence/{implementation}.md` and follow it whenever this skill lists or opens a plan or reads a planning document.
+
+A selected plan may contain:
+
+- `plan.md`
+- `progress.md`
+- `findings.md`
+- `questions.md`
 
 ## Phase 1: List plans only
 
-1. Find `{repo root}/.ai/planning/`
-   - If you don't find anything, try running `ls "{repo root}/.ai/planning/"` via Bash to list the plan folders since Glob fails to match directories on Windows
-2. List plan folders only; do not read any files inside them yet
-3. Sort folders newest first
-4. Show the folder names exactly as stored, in a numbered list
+1. List plans; do not read any planning documents yet
+2. Sort plans newest first
+3. Show the plan names exactly as stored, in a numbered list
 
 Example:
 
 1. `2026-03-20 refactor-auth-flow`
 2. `2026-03-18 add-retry-metrics`
 
-If no folders exist, tell the user no saved plans were found and suggest creating one with the `planning-mode` or `planning` skill.
+If no plans exist, tell the user no saved plans were found and suggest creating one with the `planning-mode` or `planning` skill.
 
-If only a single folder exist, skip "Phase 2: Ask the user to choose" and consider this plan to be the one the user intends to select, then proceed to "Phase 3: Load the selected plan" and load this plan.
+If only a single plan exists, skip "Phase 2: Ask the user to choose" and consider this plan to be the one the user intends to select, then proceed to "Phase 3: Load the selected plan" and load this plan.
 
 ## Phase 2: Ask the user to choose
 
 Prompt the user to reply with either:
 - the list number, or
-- the folder name
+- the plan name
 
 Selection rules:
 - If the input is a number, resolve it against the numbered list
-- If the input is text, try exact folder-name match first
+- If the input is text, try exact plan-name match first
 - If no exact match exists, allow a single unambiguous case-insensitive partial match
 - If the input is invalid or ambiguous, explain why and ask again
 - Do not read any plan documents before a valid selection is resolved
 
 ## Phase 3: Load the selected plan
 
-After the user selects a plan, read the available planning documents from that folder.
+After the user selects a plan, open it and read its available planning documents.
 
 Read in this order:
 1. `plan.md`
 2. `progress.md` (if it exists)
 3. `findings.md`
 4. `questions.md`
-5. Any other files in the folder, if relevant
+5. Any other documents in the plan, if relevant
 
-Only read files that exist. If `plan.md` is missing, say the plan is incomplete and continue with any other available docs.
+Only read documents that exist. If `plan.md` is missing, say the plan is incomplete and continue with any other available docs.
 
 ## Phase 4: Report implementation status
 
@@ -80,10 +88,10 @@ Prefer plain labels such as:
 - `Unknown`
 
 When reporting back:
-- name the selected plan folder
+- name the selected plan
 - state the best-fit implementation status
 - briefly justify it with concrete evidence from the docs
-- call out missing files or uncertainty explicitly
+- call out missing documents or uncertainty explicitly
 - mention any open questions or blockers
 
 ## Phase 5: Ask how to proceed

@@ -8,7 +8,7 @@ argument-hint: [work to plan | 'continue' | 'off' | empty to start without topic
 
 - `/planning-mode` — Enable planning mode, then prompt for a topic
 - `/planning-mode <topic>` — Enable planning mode and start planning
-- `/planning-mode continue` — List existing plan folders and resume one
+- `/planning-mode continue` — List existing plans and resume one
 - `/planning-mode off` — Disable planning mode
 
 ## Configuration
@@ -25,11 +25,24 @@ Claude Code and Copilot support the bundled `PostToolUse` and `SessionStart` hoo
 
 If you cannot determine which tool you are, ask the user.
 
+## Persistence
+
+A persistence implementation decides where and how plans are stored. Before creating, listing or opening a plan, find the setting:
+
+```bash
+cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
+```
+
+- No output, or an empty value: use `local-ai-folders`
+- `persistence={value}`: use `{value}`. If `../planning/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+
+Read `../planning/persistence/{implementation}.md` and follow it whenever this skill creates, lists or opens a plan, or reads, writes or updates a planning document. The `.ai/.active-mode` flag file is not part of this and always stays in the repository.
+
 ## Planning files
 
-Use persistent markdown files as your "working memory on disk." Context windows are volatile and limited; anything important gets written to disk.
+Use persistent markdown documents as your working memory. Context windows are volatile and limited; anything important gets persisted.
 
-- For any plan, you must create the following files in the plan folder:
+- For any plan, you must create the following documents in the plan:
   - **plan.md** — Track work breakdown and progress
   - **questions.md** — Track your questions and the user's responses and vice versa
   - **findings.md** — Store research and discoveries
@@ -78,7 +91,7 @@ Parse the arguments:
 1. Create `{repo root}/.ai/.active-mode` with:
    ```
    mode: planning
-   folder: (pending)
+   location: (pending)
    started: {yyyy-mm-dd HH:mm}
    ```
 2. Tell the user: "Planning mode is on. What would you like to plan?"
@@ -87,37 +100,35 @@ Parse the arguments:
 ### Step 3b: Enable with topic
 
 1. Derive `{task-name}` — an extremely succinct name for the task, use kebab-case e.g. `refactor-mfa-flow`.
-2. Create the plan folder at `{repo root}/.ai/planning/{yyyy-mm-dd} {task-name}/` where:
-   - `{repo root}` is the root of the current repository
+2. Create the plan, where:
    - `{yyyy-mm-dd}` is the date of the plan creation
    - `{task-name}` is the name derived in the previous step
 3. If the flag file doesn't exist yet, create `{repo root}/.ai/.active-mode` with:
    ```
    mode: planning
-   folder: {repo root}/.ai/planning/{yyyy-mm-dd} {task-name}/
+   location: {plan location}
    started: {yyyy-mm-dd HH:mm}
    ```
-   If it already exists (from Step 3a), update the `folder:` line.
+   If it already exists (from Step 3a), update the `location:` line.
 4. Continue to Step 4.
 
 ### Step 3c: Continue an existing plan
 
-1. List directories in `{repo root}/.ai/planning/`.
-   - If the directory is missing or contains no plan folders, stop and tell the user: "No existing plans found in `.ai/planning/`. Use `/planning-mode <topic>` to start a new one."
-   - On Windows, if Glob fails to list the directory, fall back to `ls "{repo root}/.ai/planning/"` via Bash.
-2. Sort newest first (the `{yyyy-mm-dd}` folder prefix sorts correctly lexicographically).
-3. Show the folder names exactly as stored in a numbered list. Example:
+1. List plans.
+   - If there are none, stop and tell the user: "No existing plans found. Use `/planning-mode <topic>` to start a new one."
+2. Sort newest first.
+3. Show the plan names exactly as stored in a numbered list. Example:
    ```
    1. 2026-04-10 refactor-auth-flow
    2. 2026-04-08 add-retry-metrics
    ```
-4. Prompt the user to reply with either the list number or the folder name.
+4. Prompt the user to reply with either the list number or the plan name.
 5. Resolve the selection:
    - If the input is a number, resolve it against the numbered list.
-   - If the input is text, try exact folder-name match first.
+   - If the input is text, try exact plan-name match first.
    - If no exact match, allow a single unambiguous case-insensitive partial match.
    - If the input is invalid, ambiguous, or out of range, stop and tell the user the selection was invalid. Do not re-prompt.
-6. Read the planning files in the selected folder so their contents are in context. Read in this order, only what exists:
+6. Open the selected plan and read its planning documents so their contents are in context. Read in this order, only what exists:
    1. `plan.md`
    2. `progress.md` (multi-phase plans only)
    3. `findings.md`
@@ -127,21 +138,21 @@ Parse the arguments:
 7. Create `{repo root}/.ai/.active-mode` with:
    ```
    mode: planning
-   folder: {repo root}/.ai/planning/{selected folder}/
+   location: {location of the selected plan}
    started: {yyyy-mm-dd HH:mm}
    ```
 8. Briefly summarise the plan's current state to the user — current phase, status, any open questions or blockers — based only on the loaded docs.
-9. Confirm: "Planning mode is on. Continuing `{folder path}`. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
+9. Confirm: "Planning mode is on. Continuing `{plan location}`. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
 10. Recommend renaming the conversation:
-    - If running in GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation." where `{task name}` is the folder name with the date prefix removed.
-    - If running in Claude Code or Pi, recommend: "You can run `/name {task name}` to name this conversation." where `{task name}` is the folder name with the date prefix removed.
+    - If running in GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation." where `{task name}` is the plan's `{task-name}`.
+    - If running in Claude Code or Pi, recommend: "You can run `/name {task name}` to name this conversation." where `{task name}` is the plan's `{task-name}`.
     - Otherwise, recommend: "Consider renaming this conversation to `{task name}` if your tool supports it."
 11. Skip Steps 4–7 (the plan already exists). Continue with Step 8 (keep planning documents updated).
 
 ### Step 4: Research & discover
 
 1. Gather requirements from the user's request.
-2. Create `findings.md` in the plan folder following the template: [templates/findings.md](./templates/findings.md)
+2. Create `findings.md` in the plan following the template: [templates/findings.md](./templates/findings.md)
 3. Explore the codebase to understand the scope of the change.
 4. Document findings in `findings.md` as you go.
 
@@ -164,7 +175,7 @@ You must use the starting templates (see [Planning files](#planning-files)) when
 ### Step 7: Respond
 
 1. Return a summarised version of the plan to the user. Highlight if there are unresolved questions or if the plan is ready for implementation.
-2. Confirm to the user: "Planning mode is on. I'll keep updating the planning docs in {plan folder path} as we go. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
+2. Confirm to the user: "Planning mode is on. I'll keep updating the planning docs in {plan location} as we go. Use `/planning-mode off` when done. Planning mode will be auto-disabled by starting a new session when supported by your harness configuration."
 3. Recommend to the user that they rename this conversation:
    - If running in GitHub Copilot, recommend: "You can run `/rename {task name}` to rename this conversation."
    - If running in Claude Code or Pi, recommend: "You can run `/name {task name}` to name this conversation."
@@ -176,7 +187,7 @@ You must use the starting templates (see [Planning files](#planning-files)) when
 
 While planning mode is active, if your harness has `PostToolUse` hook support configured, the hook outputs reminders after each tool use. When you see these reminders:
 
-- If you've learned something new since the last update, update the relevant planning document(s) on disk
+- If you've learned something new since the last update, update the relevant planning document(s)
 - If you haven't learned anything new, carry on — don't update for the sake of it
 - Keep documents well-structured and up-to-date with the templates
 - ALWAYS tell the user if you have updated any planning docs or that you decided no updates to any planning documents were required
