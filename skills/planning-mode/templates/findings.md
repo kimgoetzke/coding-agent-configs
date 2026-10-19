@@ -2,7 +2,7 @@
 
 <!--
   WHAT: Your knowledge base for the task. Stores everything you discover and decide.
-  WHY: Context windows are limited. This file is your "external memory" - persistent and unlimited.
+  WHY: Context windows are limited. This document is your "external memory" - persistent and unlimited.
   WHEN: After every 2 view/browser/search operations, IMMEDIATELY save key findings here (2-Action Rule).
 -->
 
@@ -10,8 +10,8 @@
 
 <!--
   WHAT: Your explicit determination of whether this is a multi-phase plan.
-  WHY: Determines which planning files are required (progress.md is only needed for multi-phase plans).
-  WHEN: Fill this in after initial research, before creating the remaining planning files.
+  WHY: Determines which planning documents are required (the `progress` document is only needed for multi-phase plans).
+  WHEN: Fill this in after initial research, before creating the remaining planning documents.
   CRITERIA: Multi-phase if ANY of: >5 files modified, >5 tool uses expected, >150 lines changed.
   EXAMPLE:
     **Multi-phase: Yes**
@@ -71,9 +71,9 @@
 
 <!--
   REMINDER: The 2-Action Rule
-  After every 2 view/browser/search operations, you MUST update this file.
+  After every 2 view/browser/search operations, you MUST update this document.
   This prevents visual information from being lost when context resets.
 -->
 
-_Update this file after every 2 view/browser/search operations_
+_Update this document after every 2 view/browser/search operations_
 _This prevents visual information from being lost_

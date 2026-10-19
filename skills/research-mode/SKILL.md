@@ -99,17 +99,17 @@ Parse the arguments:
 2. Sort newest first.
 3. Show the document names exactly as stored in a numbered list. Example:
    ```
-   1. 2026-04-10 auth-middleware-analysis.md
-   2. 2026-04-08 retry-strategies.md
+   1. 2026-04-10 auth-middleware-analysis
+   2. 2026-04-08 retry-strategies
    ```
 4. Prompt the user to reply with either the list number or the document name.
 5. Resolve the selection:
    - If the input is a number, resolve it against the numbered list.
-   - If the input is text, try exact document-name match first (with or without `.md` suffix).
+   - If the input is text, try exact document-name match first.
    - If no exact match, allow a single unambiguous case-insensitive partial match.
    - If the input is invalid, ambiguous, or out of range, stop and tell the user the selection was invalid. Do not re-prompt.
 6. Open the selected document so its contents are in context.
-7. Derive `{topic}` from the document name by removing the `{yyyy-mm-dd} ` prefix and any `.md` suffix.
+7. Derive `{topic}` from the document name by removing the `{yyyy-mm-dd} ` prefix.
 8. Create `{repo root}/.ai/.active-mode` with:
    ```
    mode: research

@@ -24,25 +24,25 @@ Every plan is identified by:
 - `{yyyy-mm-dd}`, the date of the plan creation
 - `{task-name}`, an extremely succinct name for the task in kebab-case
 
-## Planning files
+## Planning documents
 
-Use persistent markdown documents as your working memory. Context windows are volatile and limited; anything important gets persisted.
+Use persistent planning documents as your working memory. Context windows are volatile and limited; anything important gets persisted.
 
 - For any plan, you must create the following documents in the plan:
-  - **plan.md** — Track work breakdown and progress
-  - **questions.md** — Track your questions and the user's responses and vice versa
-  - **findings.md** — Store research and discoveries
+  - **plan** — Track work breakdown and progress
+  - **questions** — Track your questions and the user's responses and vice versa
+  - **findings** — Store research and discoveries
 - For multi-phase plans, you must also create:
-  - **progress.md** — Session log and test results
-- Before creating the planning files, you must read the starting templates in `./templates/`
-- You must use the starting templates when creating or updating planning files to guide the structure and content of these files
+  - **progress** — Session log and test results
+- Before creating the planning documents, you must read the starting templates in `./templates/`
+- You must use the starting templates when creating or updating planning documents to guide their structure and content. Write the content in Markdown; the persistence implementation decides how it is stored
 
-| File           | Purpose                             | When to Update      | Scope            |
-| -------------- | ----------------------------------- | ------------------- | ---------------- |
-| `plan.md`      | Work breakdown, decisions           | After each phase    | All plans        |
-| `findings.md`  | Research, discoveries               | Per 2-action rule   | All plans        |
-| `questions.md` | Log of questions and user responses | Throughout planning | All plans        |
-| `progress.md`  | Session log, test results           | Throughout session  | Multi-phase only |
+| Document    | Template                                     | Purpose                             | When to Update      | Scope            |
+| ----------- | -------------------------------------------- | ----------------------------------- | ------------------- | ---------------- |
+| `plan`      | [plan.md](./templates/plan.md)               | Work breakdown, decisions           | After each phase    | All plans        |
+| `findings`  | [findings.md](./templates/findings.md)       | Research, discoveries               | Per 2-action rule   | All plans        |
+| `questions` | [questions.md](./templates/questions.md)     | Log of questions and user responses | Throughout planning | All plans        |
+| `progress`  | [progress.md](./templates/progress.md)       | Session log, test results           | Throughout session  | Multi-phase only |
 
 ## Workflow
 
@@ -52,9 +52,9 @@ If you decide or are expected to produce a plan, follow the steps outlined in th
 
 - Gather requirements from the user's request
 - Derive `{task-name}` — an extremely succinct name for the task, use kebab-case e.g. `refactor-mfa-flow`
-- Create the plan and its `findings.md` following the template: [templates/findings.md](./templates/findings.md)
+- Create the plan and its `findings` document following the template: [templates/findings.md](./templates/findings.md)
 - Explore the codebase to understand the scope of the change
-- Document findings in `findings.md` as you go
+- Document findings in the `findings` document as you go
 
 ### Step 2: Determine plan size
 
@@ -64,11 +64,11 @@ Based on your research, explicitly determine whether this is a **multi-phase pla
 - More than 5 tool uses are expected
 - More than 150 lines of code will change
 
-Document your determination and reasoning at the top of `findings.md` under a `## Plan Size` heading.
+Document your determination and reasoning at the top of the `findings` document under a `## Plan Size` heading.
 
-### Step 3: Create remainaing planning files
+### Step 3: Create remainaing planning documents
 
-Create the remaining planning files from the templates based on the determination in step 2 (see [Planning files](#planning-files)). Populate `plan.md` with the plan and `questions.md` with any unresolved questions. Keep `questions.md` scaffolded even if you have no questions yet, as they may come up later. For multi-phase plans, also create `progress.md` as a stub — it will be populated during execution.
+Create the remaining planning documents from the templates based on the determination in step 2 (see [Planning documents](#planning-documents)). Populate the `plan` document with the plan and the `questions` document with any unresolved questions. Keep the `questions` document scaffolded even if you have no questions yet, as they may come up later. For multi-phase plans, also create the `progress` document as a stub — it will be populated during execution.
 
 ### Step 4: Respond
 
@@ -83,10 +83,10 @@ Create the remaining planning files from the templates based on the determinatio
 
 ### 1. Keep docs up-to-date
 
-- Every plan — single-phase or multi-phase — must conclude with all planning files up-to-date
+- Every plan — single-phase or multi-phase — must conclude with all planning documents up-to-date
 - For multi-phase plans, this applies at the end of every phase, not just the final one
 - The plan must have explicit actions to this effect that specifically refer to this `planning` skill (in each phase, for multi-phase plans)
-- When updating planning files, do so in line with the templates for these files
+- When updating planning documents, do so in line with their templates
 
 ### 2. Reference relevant skills
 
@@ -97,26 +97,26 @@ Create the remaining planning files from the templates based on the determinatio
 
 ### 3. The 2-action rule
 
-> "After every 2 view/browser/search operations, IMMEDIATELY save key findings to text files."
+> "After every 2 view/browser/search operations, IMMEDIATELY save key findings to the `findings` document."
 
 This prevents visual/multimodal information from being lost.
 
 ### 4. Read before decide
 
-Before major decisions, read the plan file. This keeps goals in your attention window.
+Before major decisions, read the `plan` document. This keeps goals in your attention window.
 
 ### 5. Update after act
 
 After completing any phase:
 
-- Update `## Status` in `plan.md`
+- Update `## Status` in the `plan` document
 - Mark phase status: `In progress` → `Complete`
 - Log any errors encountered
 - Note files created/modified
 
 ### 6. Log ALL errors
 
-Every error goes in `plan.md` (the single home for errors across all planning files). This builds knowledge and prevents repetition.
+Every error goes in the `plan` document (the single home for errors across all planning documents). This builds knowledge and prevents repetition.
 
 ### 7. Never repeat failures
 

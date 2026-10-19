@@ -72,11 +72,11 @@ Conduct the research, analysis, or investigation the user requested.
 
 ### Step 5: Persist findings
 
-Create the markdown document containing the outcome of your work (analysis, findings, comparison, etc.).
+Create the document containing the outcome of your work (analysis, findings, comparison, etc.). Write the content in Markdown; the persistence implementation decides how it is stored.
 
-- Structure the file in whatever way is most appropriate for the task
-- Use markdown visualisations (tables, diagrams, lists) where they add clarity
-- If you consulted external resources (URLs, API docs, RFCs, etc.), include a **Resources** section at the end of your findings file listing them with brief descriptions
+- Structure the document in whatever way is most appropriate for the task
+- Use visualisations (tables, diagrams, lists) where they add clarity but make sure they are in-lined in the output (e.g. only markdown in .md files)
+- If you consulted external resources (URLs, API docs, RFCs, etc.), include a **Resources** section at the end of the document listing them with brief descriptions
 
 ### Step 6: Keep findings current
 

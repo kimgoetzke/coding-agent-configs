@@ -1,18 +1,18 @@
 ---
 name: update-plan
-description: Updates planning documents created using the planning-mode or planning skill after questions.md has been updated by the user. Supports an interactive `ask` mode that prompts the user for any still-unanswered questions in real-time. Use when user asks to update the plan after answering your questions, or when they want to walk through unanswered questions interactively.
+description: Updates planning documents created using the planning-mode or planning skill after the user has answered questions in the plan. Supports an interactive `ask` mode that prompts the user for any still-unanswered questions in real-time. Use when user asks to update the plan after answering your questions, or when they want to walk through unanswered questions interactively.
 argument-hint: [full or partial plan name when no context | empty when plan in context | 'ask' for interactive mode in context]
 ---
 
 # Update Plan from User Responses
 
-Process user responses in `questions.md` and update all related planning documents accordingly.
+Process user responses in the `questions` document and update all related planning documents accordingly.
 
 ## Prerequisites
 
 - A plan created by the `planning` or `planning-mode` skills must already exist
-- For default (non-`ask`) mode: the plan's `questions.md` must contain at least one question with a non-empty `### Response` section
-- For `ask` mode: the plan's `questions.md` must contain at least one unprocessed question (with or without a response)
+- For default (non-`ask`) mode: the plan's `questions` document must contain at least one question with a non-empty `### Response` section
+- For `ask` mode: the plan's `questions` document must contain at least one unprocessed question (with or without a response)
 
 ## Argument parsing
 
@@ -53,16 +53,16 @@ Resolve the target plan using the first matching strategy:
 
 Open the selected plan and read the following documents (skip any that don't exist):
 
-1. `questions.md`
-2. `plan.md`
-3. `findings.md`
-4. `progress.md` (if present)
+1. `questions`
+2. `plan`
+3. `findings`
+4. `progress` (if present)
 
-If `questions.md` does not exist or contains no questions, tell the user there's nothing to process and stop.
+If the `questions` document does not exist or contains no questions, tell the user there's nothing to process and stop.
 
 ## Phase 3: Identify questions to handle
 
-Scan `questions.md` for unprocessed questions, in document order. A question is "processed" when a `<!-- Processed -->` comment appears directly below its response content; processed questions are always skipped.
+Scan the `questions` document for unprocessed questions, in document order. A question is "processed" when it carries the processed mark defined by the persistence implementation; processed questions are always skipped.
 
 What counts as "to handle" depends on the mode:
 
@@ -78,12 +78,12 @@ Iterate the unprocessed questions identified in Phase 3 in document order. For e
 This is the standard processing path (applies to both default mode and ask mode):
 
 1. **Understand the response** — determine what decision, clarification, or constraint the user provided
-2. **Assess impact on the plan** — decide whether `plan.md`, `findings.md`, or `progress.md` need updating
+2. **Assess impact on the plan** — decide whether the `plan` document, the `findings` document, or the `progress` document need updating
 3. **Update planning documents** — make targeted edits:
-   - `plan.md`: update phases, decisions, key questions, or scope as needed
-   - `findings.md`: record new requirements, technical decisions, or constraints derived from the response
-   - `progress.md`: log a new entry noting the questions processing session
-4. **Mark response as processed** — add `<!-- Processed -->` below the response in `questions.md`
+   - `plan`: update phases, decisions, key questions, or scope as needed
+   - `findings`: record new requirements, technical decisions, or constraints derived from the response
+   - `progress` (if it exists): log a new entry noting the questions processing session
+4. **Mark the question as processed** — following the persistence implementation
 
 ### Branch B — Question has an empty `### Response`, ask mode is ON
 
@@ -96,8 +96,8 @@ Prompt the user interactively, then run Branch A:
    - Other agents → use their equivalent structured question tool if available
    - Otherwise (or for open-ended questions) → prompt the user in plain text
 3. **Capture the answer**:
-   - If the user provides an answer → write it verbatim into `questions.md` under the existing `### Response` heading (do not rephrase, do not editorialise). Then run **Branch A** for this question (process the answer and mark `<!-- Processed -->`).
-   - If the user skips/declines/answers with empty text → leave the `### Response` empty, **do not** add `<!-- Processed -->`, and move on to the next question.
+   - If the user provides an answer → write it verbatim into the `questions` document under the existing `### Response` heading (do not rephrase, do not editorialise). Then run **Branch A** for this question (process the answer and mark the question as processed).
+   - If the user skips/declines/answers with empty text → leave the `### Response` empty, **do not** mark the question as processed, and move on to the next question.
 
 ### Branch C — Question has an empty `### Response`, ask mode is OFF
 
@@ -106,15 +106,15 @@ Skip the question silently and move on. It remains unprocessed and will be repor
 ### Rules (apply to all branches)
 
 - Never modify the user's response text
-- Preserve existing content in all documents except in `plan.md`; append or update, don't overwrite
-- Replacing/removing/overwriting in the `plan.md` is permitted
+- Preserve existing content in all documents except in the `plan` document; append or update, don't overwrite
+- Replacing/removing/overwriting in the `plan` document is permitted
 - If a response contradicts a prior decision, update the decision and note the change
 
 ## Phase 5: Add follow-up questions
 
 If processing the responses raises new questions or ambiguities:
 
-1. Add new questions to the **bottom** of `questions.md` following the existing template format
+1. Add new questions to the **bottom** of the `questions` document following the existing template format
 2. Continue the existing numbering sequence (e.g. if last question was Q3, new questions start at Q4)
 3. Reference the response that prompted the follow-up (e.g. "Follow-up from Q2")
 4. Include an empty `### Response` section below each new question
@@ -128,7 +128,7 @@ Provide a concise summary covering:
 1. **Responses processed** — list which questions (by number and topic) were processed
 2. **Plan changes** — state whether the plan was changed; if yes, briefly describe what changed and in which document(s)
 3. **New questions** — if follow-up questions were added, explicitly tell the user:
-   - That new questions are waiting in `questions.md`
+   - That new questions are waiting in the `questions` document
    - List each new question inline (number and full question text)
    - Ask the user to review and respond to them
 4. **Still-unanswered questions** — at the end of the report, list every unprocessed question whose `### Response` is still empty (number and topic). This applies to **all** invocations of this skill, including default mode (where empty-response questions were skipped) and ask mode (where the user may have declined some questions). If every question has been answered or processed, omit this section.

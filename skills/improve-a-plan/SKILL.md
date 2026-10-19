@@ -59,8 +59,8 @@ source. The findings doc has some of this, but after a lot of back and forth, it
   3. List every assumption and verify it against the actual source(s)
 - If no, encourage the user to start a fresh session
 - Once you have completed either of the options that can improve a plan
-  - You must update `findings.md` and update or create, if it does not exists, `questions.md` with your findings
+  - You must update the `findings` document and update or create, if it does not exists, the `questions` document with your findings
     - If you are in read-only mode, prompt the user to disable it in order to make these changes
-  - The changes you make to `questions.md` should be your findings/concerns/challenges phrased as clarification or decision questions to the user
+  - The changes you make to the `questions` document should be your findings/concerns/challenges phrased as clarification or decision questions to the user
   - You must encourage the user to review or discuss these findings
   - You must update all other plan documents accordingly, if necessary

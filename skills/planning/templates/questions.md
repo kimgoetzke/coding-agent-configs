@@ -2,13 +2,13 @@
 
 <!--
   WHAT: A record of important questions to answer that will change the implementation approach. Add 
-    questions to the user here but the user may also add questions for you once you've created the file.
+    questions to the user here but the user may also add questions for you once you've created the document.
   WHY: A persistent record for discussion between you and the user.
 
  Add the sentence below as a reminder to the user and yourself.
 -->
 
-Questions are added in chronological order to this file; new questions are added at the bottom.
+Questions are added in chronological order to this document; new questions are added at the bottom.
 
 ## Q[Number]: [Core topic of the question e.g. "Transaction boundaries for processCommandBatch"]
 
@@ -23,7 +23,7 @@ Questions are added in chronological order to this file; new questions are added
   Always include the `### Response` heading below each question when you create it, but leave the
   section body empty for the user to fill in. Once the user has populated the response, you must
   never modify their answer. If the answer is insufficient or generates follow-up questions, add
-  new questions to the bottom of this file, linking the question which prompted the follow up.
+  new questions to the bottom of this document, linking the question which prompted the follow up.
 -->
 
 <!--
@@ -31,7 +31,7 @@ Questions are added in chronological order to this file; new questions are added
   
   # Questions & Answers
   
-  Questions are added in chronological order to this file; new questions are added at the bottom.
+  Questions are added in chronological order to this document; new questions are added at the bottom.
   
   ## Q1: Trigger disabling
   

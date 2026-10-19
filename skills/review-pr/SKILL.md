@@ -39,7 +39,7 @@ Once you have read the code you can no longer tell which parts of your explanati
 Run `gh --version`. If `gh` is not found, tell the user it is required to fetch the PR or post anything back, and ask whether to continue regardless.
 
 - If they decline, stop.
-- If they accept: skip steps 2 to 4, diff the current branch against its base with `git diff` in step 5, record `no PR metadata — gh unavailable` in the frontmatter fields you cannot fill, and skip posting in step 10.
+- If they accept: skip steps 2 to 4, diff the current branch against its base with `git diff` in step 5, record `no PR metadata — gh unavailable` in the review metadata fields you cannot fill, and skip posting in step 10.
 
 ## Step 2: Resolve the PR
 
@@ -61,7 +61,7 @@ This confirms the PR exists. Also collect:
 
 - Latest commit on the PR branch: `gh pr view {number} --json commits --jq '.commits[-1].oid'`
 - Date and time: `date '+%Y-%m-%d %H:%M:%S %Z'`
-- Repository slug: `gh repo view --json nameWithOwner --jq '.nameWithOwner'` — the `{owner/repo}` used in the frontmatter and in step 10's API path
+- Repository slug: `gh repo view --json nameWithOwner --jq '.nameWithOwner'` — the `{owner/repo}` used in the review metadata and in step 10's API path
 
 ## Persistence
 
@@ -74,11 +74,11 @@ cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/de
 - No output, or an empty value: use `local-ai-folders`
 - `persistence={value}`: use `{value}`. If `./persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
 
-Read `./persistence/{implementation}.md` and follow it whenever this skill finds, creates or updates a review.
+Read `./persistence/{implementation}.md` and follow it whenever this skill finds, creates or updates a review, or reads or writes its metadata.
 
 ## Step 4: Check for existing review
 
-Find an existing review for the PR number. On multiple matches, take the one whose `pr_number` frontmatter matches.
+Find an existing review for the PR number. On multiple matches, take the one whose `pr_number` metadata matches.
 
 **If a review exists**, compare its `last_reviewed_commit` against the latest commit from step 3:
 
@@ -251,22 +251,24 @@ Holds if:
 
 The step 7 diagram, where the finding has one, goes last — after everything above, and after any `Holds if:` bullets.
 
-**Document structure.** `{...}` marks a substitution; square brackets in status tags are literal.
+**Review metadata.** Store these fields with the review, as the persistence implementation describes. `{...}` marks a substitution.
+
+| Field                  | Value                              |
+| ---------------------- | ---------------------------------- |
+| `pr_number`            | `{number}`                         |
+| `pr_title`             | `{title}`                          |
+| `pr_url`               | `{url}`                            |
+| `pr_author`            | `{author}`                         |
+| `pr_branch`            | `{headRefName}`                    |
+| `base_branch`          | `{baseRefName}`                    |
+| `repository`           | `{owner/repo}`                     |
+| `first_reviewed`       | `{yyyy-mm-dd HH:MM:SS TZ}`         |
+| `last_reviewed`        | `{yyyy-mm-dd HH:MM:SS TZ}`         |
+| `last_reviewed_commit` | `{latest commit hash on PR branch}` |
+
+**Document structure.** Write the review body in Markdown; the persistence implementation decides how it is stored. `{...}` marks a substitution; square brackets in status tags are literal.
 
 ```markdown
----
-pr_number: "{number}"
-pr_title: "{title}"
-pr_url: "{url}"
-pr_author: "{author}"
-pr_branch: "{headRefName}"
-base_branch: "{baseRefName}"
-repository: "{owner/repo}"
-first_reviewed: "{yyyy-mm-dd HH:MM:SS TZ}"
-last_reviewed: "{yyyy-mm-dd HH:MM:SS TZ}"
-last_reviewed_commit: "{latest commit hash on PR branch}"
----
-
 # PR Review: {title} (#{number})
 
 ## What This PR Changes
@@ -321,9 +323,9 @@ Under each dimension heading, list that dimension's findings in the format above
 
 ## Step 10: Present findings and, on sign-off, post to GitHub
 
-Summarise for the user: findings by severity and dimension (noting how many are conditional), the tier per dimension, the skills used, the most important findings blockers-first, and the review's location. Ask whether they want to discuss a finding or post to the PR — and say how many findings posting would cover, since yellow ones are held back by default: "Posting would add 4 inline comments; the 3 minor findings stay in the file unless you want those too."
+Summarise for the user: findings by severity and dimension (noting how many are conditional), the tier per dimension, the skills used, the most important findings blockers-first, and the review's location. Ask whether they want to discuss a finding or post to the PR — and say how many findings posting would cover, since yellow ones are held back by default: "Posting would add 4 inline comments; the 3 minor findings stay in the review unless you want those too."
 
-**Close the summary with a conversation-name recommendation** — one line, last thing in the message. The name is `review-pr-{pr-number}-{pr-title-abbreviated}`, reusing the abbreviation from the step 9 file name — e.g. `review-pr-422-improve-explain-pr-and-review-pr-skills`.
+**Close the summary with a conversation-name recommendation** — one line, last thing in the message. The name is `review-pr-{pr-number}-{pr-title-abbreviated}`, reusing the abbreviation from the step 9 review name — e.g. `review-pr-422-improve-explain-pr-and-review-pr-skills`.
 
 - **Claude Code or Pi**: recommend "You can run `/name review-pr-{pr-number}-{pr-title-abbreviated}` to name this conversation."
 - **Any other agent**: recommend "Consider renaming this conversation to `review-pr-{pr-number}-{pr-title-abbreviated}` if your tool supports it."
@@ -339,7 +341,7 @@ Summarise for the user: findings by severity and dimension (noting how many are 
 
 **The review body** is a couple of sentences plus the score table — no finding detail, that lives in the inline comments. Never reference the persisted review; other readers of the PR may not be able to open it. End with `---` and `This review was generated by {agent} {model}.` — the tool (e.g. Claude Code, GitHub Copilot, Pi) and the model (e.g. Opus 5, Sonnet 5); name the agent alone if unsure of the model.
 
-**Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the file. Drop only the quoted code block from a full-shape finding — GitHub already shows the anchored lines directly above the comment — and keep **What this code does**, **What goes wrong** and **How I checked** intact. They are what let a reviewer who did not write the code follow the thread. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets, because the author is the one person who can settle the assumption.
+**Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments, and the reader there has even less context than the reader of the review. Drop only the quoted code block from a full-shape finding — GitHub already shows the anchored lines directly above the comment — and keep **What this code does**, **What goes wrong** and **How I checked** intact. They are what let a reviewer who did not write the code follow the thread. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets, because the author is the one person who can settle the assumption.
 
 **How to post:** `gh pr review` cannot attach inline comments, so use the reviews API. Write the payload outside the working tree so it cannot be committed (e.g. `$(mktemp -t review-XXXXXX.json)`) and delete it afterwards:
 

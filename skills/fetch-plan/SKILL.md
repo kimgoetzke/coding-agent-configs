@@ -19,14 +19,14 @@ cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/de
 - No output, or an empty value: use `local-ai-folders`
 - `persistence={value}`: use `{value}`. If `../planning/persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
 
-Read `../planning/persistence/{implementation}.md` and follow it whenever this skill lists or opens a plan or reads a planning document.
+Read `../planning/persistence/{implementation}.md` and follow it whenever this skill lists or opens a plan, lists its documents or reads a planning document.
 
-A selected plan may contain:
+A selected plan may contain these planning documents:
 
-- `plan.md`
-- `progress.md`
-- `findings.md`
-- `questions.md`
+- `plan`
+- `progress`
+- `findings`
+- `questions`
 
 ## Phase 1: List plans only
 
@@ -61,23 +61,23 @@ Selection rules:
 After the user selects a plan, open it and read its available planning documents.
 
 Read in this order:
-1. `plan.md`
-2. `progress.md` (if it exists)
-3. `findings.md`
-4. `questions.md`
+1. `plan`
+2. `progress` (if it exists)
+3. `findings`
+4. `questions`
 5. Any other documents in the plan, if relevant
 
-Only read documents that exist. If `plan.md` is missing, say the plan is incomplete and continue with any other available docs.
+Only read documents that exist. If the `plan` document is missing, say the plan is incomplete and continue with any other available docs.
 
 ## Phase 4: Report implementation status
 
 Summarise the plan's implementation status using only the loaded docs.
 
 Base the status on:
-- `plan.md` phase statuses and current phase
-- `progress.md` latest actions and test results (only for multi-phase plans)
-- `findings.md` blockers, issues, and decisions
-- `questions.md` unresolved questions or missing user answers
+- `plan`: phase statuses and current phase
+- `progress`: latest actions and test results (only for multi-phase plans)
+- `findings`: blockers, issues, and decisions
+- `questions`: unresolved questions or missing user answers
 
 Prefer plain labels such as:
 - `Incomplete`

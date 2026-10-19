@@ -140,6 +140,8 @@ test("before_agent_start appends the plan location to the system prompt", async 
 
   assert.match(result.systemPrompt, /Active planning mode is enabled/);
   assert.match(result.systemPrompt, /Plan location: \/tmp\/demo-plan/);
+  assert.match(result.systemPrompt, /Update the plan, findings, questions, and progress documents as applicable/);
+  assert.doesNotMatch(result.systemPrompt, /\.md\b/);
   rmSync(cwd, { recursive: true, force: true });
 });
 

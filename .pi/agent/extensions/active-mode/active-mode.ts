@@ -185,7 +185,7 @@ function buildResearchReminder(state: ActiveModeState): string {
 function buildGenericReminder(state: ActiveModeState): string {
   return [
     `[Active ${state.mode} mode]`,
-    "Keep the mode artefacts on disk up to date when new findings change them.",
+    "Keep the mode artefacts up to date when new findings change them.",
     "Say whether you updated them or no update was needed.",
   ].join("\n");
 }
@@ -205,7 +205,7 @@ function buildPlanningSystemPrompt(state: ActiveModeState): string {
     "Active planning mode is enabled.",
     isPending(state.location) ? "Plan location: pending" : `Plan location: ${state.location}`,
     "Keep the planning documents up to date when findings materially change them.",
-    "Update plan.md, findings.md, questions.md, and progress.md as applicable.",
+    "Update the plan, findings, questions, and progress documents as applicable.",
     "Do not update them for no reason.",
     "Say whether you updated them or no update was needed.",
   ];
@@ -232,7 +232,7 @@ function buildGenericSystemPrompt(state: ActiveModeState): string {
     !isPending(state.topic) ? `Topic: ${state.topic}` : undefined,
     !isPending(state.location) ? `Location: ${state.location}` : undefined,
     !isPending(state.document) ? `Document: ${state.document}` : undefined,
-    "Keep the mode artefacts on disk up to date when findings materially change them.",
+    "Keep the mode artefacts up to date when findings materially change them.",
     "Do not update them for no reason.",
     "Say whether you updated them or no update was needed.",
   ].filter(Boolean as unknown as (v: string) => v);

@@ -1,9 +1,9 @@
 # Plan: [Brief Description]
 
 <!--
-  WHAT: This is your roadmap for the entire task. Think of it as your "working memory on disk."
-  WHY: After 50+ tool calls, your original goals can get forgotten. This file keeps them fresh.
-  WHEN: Populate this file last during the planning process. Update after each phase completes.
+  WHAT: This is your roadmap for the entire task. Think of it as your "working memory."
+  WHY: After 50+ tool calls, your original goals can get forgotten. This document keeps them fresh.
+  WHEN: Populate this document last during the planning process. Update after each phase completes.
 -->
 
 ## Goal
@@ -21,7 +21,7 @@
 <!--
   WHAT: Your understanding of what the user wants to achieve by executing this plan in your own 
     words, highlighting what is unclear and where you make assumptions to address the lack of clarity. 
-    Do not add assumptions you are going to verify with the user via questions.md here, only assumptions
+    Do not add assumptions you are going to verify with the user via the `questions` document here, only assumptions
     you believe do not need verification but can lead to a substantially different implementation if 
     misunderstood.
   WHY: Allows you and the user to spot any discrepancies in understanding of the goal.
@@ -71,7 +71,7 @@ Not started
 - [ ] Read the relevant skills for this phase before editing any file: `[skill-name]`, `[skill-name]`
 - [ ] [Task description]
 - [ ] [Task description]
-- [ ] Update `plan.md` and `findings.md` (plus `progress.md` if multi-phase) in line with the `planning` skill
+- [ ] Update the `plan` and `findings` documents (plus `progress` if multi-phase) in line with the `planning` skill
 - **Status:** Pending
 <!--
   STATUS VALUES:

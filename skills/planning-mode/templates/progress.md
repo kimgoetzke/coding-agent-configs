@@ -3,7 +3,7 @@
 <!--
   WHAT: Your session log - a chronological record of what you did, when, and what happened.
   WHY: Preserves a "what happened" record so you can resume after breaks or context resets.
-  WHEN: Update after completing each phase. More detailed than plan.md.
+  WHEN: Update after completing each phase. More detailed than the `plan` document.
 -->
 
 ## Session: [DATE]
@@ -25,7 +25,7 @@
 - **Status:** In progress
 - **Started:** [timestamp]
 <!--
-  STATUS: Same as plan.md (Pending, In progress, Complete)
+  STATUS: Same as the `plan` document (Pending, In progress, Complete)
   TIMESTAMP: When you started this phase (e.g., "2026-01-15 10:00")
 -->
 - Actions taken:
@@ -44,7 +44,7 @@
     EXAMPLE:
       - todo.py (created)
       - todos.json (created by app)
-      - plan.md (updated)
+      - the `plan` document (updated)
   -->
   -
 
@@ -80,7 +80,7 @@
   REMINDER:
   - Update after completing each phase
   - Be detailed - this is your "what happened" log
-  - Errors themselves go in plan.md, not here
+  - Errors themselves go in the `plan` document, not here
 -->
 
 _Update after completing each phase_

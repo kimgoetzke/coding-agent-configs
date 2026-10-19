@@ -1,6 +1,6 @@
 # Plans: local-ai-folders
 
-Each plan is a folder in the current repository, and each plan document is a markdown file in that folder.
+Each plan is a folder in the current repository, and each planning document is a Markdown file in that folder.
 
 ## Layout
 
@@ -8,7 +8,8 @@ Each plan is a folder in the current repository, and each plan document is a mar
 - A plan's folder is `{yyyy-mm-dd} {task-name}/`, e.g. `.ai/planning/2026-04-09 refactor-auth-flow/`
 - A plan's name is its folder name, exactly as stored
 - A plan's location is the full path to its folder
-- A document is the file with the document's name in the plan folder, e.g. `.ai/planning/2026-04-09 refactor-auth-flow/plan.md`
+- A planning document is the file `{document name}.md` in the plan folder, e.g. the `plan` document is `.ai/planning/2026-04-09 refactor-auth-flow/plan.md`
+- Documents are stored as the Markdown the skill writes, unchanged
 
 ## Operations
 
@@ -30,12 +31,16 @@ Resolve the plan name to `{repo root}/.ai/planning/{plan name}/`. A document tha
 
 ### List a plan's documents
 
-List the files in the plan folder.
+List the files in the plan folder. A document's name is its filename without `.md`.
 
 ### Read, write or update a document
 
-Read, create or edit `{plan folder}/{document name}`.
+Read, create or edit `{plan folder}/{document name}.md`.
 
 ### Add a dated document to a plan
 
 Write `{plan folder}/{yyyy-mm-dd} {topic}.md`, e.g. `.ai/planning/2026-04-09 refactor-auth-flow/2026-04-10 auth-middleware-analysis.md`.
+
+### Mark a question as processed
+
+In `questions.md`, add `<!-- Processed -->` on its own line directly below the question's response content. A question is processed when this comment follows its response.

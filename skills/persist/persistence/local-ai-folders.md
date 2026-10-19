@@ -1,13 +1,14 @@
 # Research documents: local-ai-folders
 
-Each research document is a markdown file in the current repository.
+Each research document is a Markdown file in the current repository.
 
 ## Layout
 
 - All research documents live in `{repo root}/.ai/research/`, where `{repo root}` is the root of the current repository
 - A document's file is `{yyyy-mm-dd} {topic}.md`, e.g. `.ai/research/2026-04-10 auth-middleware-analysis.md`
-- A document's name is its filename, exactly as stored
+- A document's name is its filename without `.md`, e.g. `2026-04-10 auth-middleware-analysis`
 - A document's location is the full path to its file
+- Documents are stored as the Markdown the skill writes, unchanged
 
 ## Operations
 
