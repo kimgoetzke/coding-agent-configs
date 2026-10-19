@@ -1,4 +1,4 @@
-# PR reviews: local-ai-folders
+# PR reviews: local-ai-folder-markdown
 
 Each review is a Markdown file in the current repository, with its metadata as YAML frontmatter.
 

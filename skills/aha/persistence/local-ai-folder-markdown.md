@@ -1,4 +1,4 @@
-# Insights: local-ai-folders
+# Insights: local-ai-folder-markdown
 
 Each insight is a markdown file in the current repository.
 

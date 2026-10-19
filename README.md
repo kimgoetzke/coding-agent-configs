@@ -93,13 +93,13 @@ Each skill is somewhat opinionated, but there is no prescribed workflow - they w
 
 ### Project folder structure
 
-Skills that persist work choose where to store it from a `persistence=` setting. They read `{repo root}/.ai/config` first, then `~/.ai/config`, and use `local-ai-folders` when neither sets it:
+Skills that persist work choose where to store it from a `persistence=` setting. They read `{repo root}/.ai/config` first, then `~/.ai/config`, and use `local-ai-folder-markdown` when neither sets it:
 
 ```
-persistence=local-ai-folders
+persistence=local-ai-folder-markdown
 ```
 
-With `local-ai-folders`, skills write under a `.ai/` directory at your project root. A project that uses these skills will accumulate a structure like this:
+With `local-ai-folder-markdown`, skills write under a `.ai/` directory at your project root. A project that uses these skills will accumulate a structure like this:
 
 ```
 your-project/

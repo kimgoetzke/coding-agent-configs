@@ -1,4 +1,4 @@
-# Research documents: local-ai-folders
+# Research documents: local-ai-folder-markdown
 
 Each research document is a Markdown file in the current repository.
 

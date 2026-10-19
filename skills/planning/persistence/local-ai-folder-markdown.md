@@ -1,4 +1,4 @@
-# Plans: local-ai-folders
+# Plans: local-ai-folder-markdown
 
 Each plan is a folder in the current repository, and each planning document is a Markdown file in that folder.
 

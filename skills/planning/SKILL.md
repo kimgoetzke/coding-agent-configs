@@ -14,8 +14,8 @@ A persistence implementation decides where and how plans are stored. Before crea
 cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
 ```
 
-- No output, or an empty value: use `local-ai-folders`
-- `persistence={value}`: use `{value}`. If `./persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folders`
+- No output, or an empty value: use `local-ai-folder-markdown`
+- `persistence={value}`: use `{value}`. If `./persistence/{value}.md` does not exist, tell the user the value is unknown and use `local-ai-folder-markdown`
 
 Read `./persistence/{implementation}.md` and follow it whenever this skill creates a plan or reads, writes or updates a planning document.
 

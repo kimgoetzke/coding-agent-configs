@@ -17,8 +17,8 @@ A persistence implementation decides where and how output is stored. Before Step
 cat "$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config" ~/.ai/config 2>/dev/null | grep -m1 '^persistence=' | tr -d '\r'
 ```
 
-- No output, or an empty value: use `local-ai-folders`
-- `persistence={value}`: use `{value}`. If the implementation file below for the store you write to does not exist for `{value}`, tell the user the value is unknown and use `local-ai-folders`
+- No output, or an empty value: use `local-ai-folder-markdown`
+- `persistence={value}`: use `{value}`. If the implementation file below for the store you write to does not exist for `{value}`, tell the user the value is unknown and use `local-ai-folder-markdown`
 
 Read only the implementation file for the store you write to, and follow it whenever this skill creates or updates a document:
 
