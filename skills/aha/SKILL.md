@@ -23,7 +23,7 @@ Each insight is identified by `{yyyy-mm-dd}`, its creation date, and `{succinct-
 This skill belongs to the `insights` skill group. A persistence implementation decides where and how insights are stored. Before creating or listing insights, find the setting:
 
 ```bash
-R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.insights=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config.properties"; { cat "$R" ~/.ai/config.properties | grep '^persistence\.insights[[:space:]]*=[[:space:]]*[^[:space:]]'; cat "$R" ~/.ai/config.properties | grep '^persistence[[:space:]]*=[[:space:]]*[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
 - No output: use `local-ai-folder-markdown`, the default for this skill group

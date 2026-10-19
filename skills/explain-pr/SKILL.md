@@ -237,7 +237,7 @@ Then load the template at `{skill dir}/templates/explain-pr.html.tmpl` and subst
 This skill belongs to the `explanations` skill group. A persistence implementation decides where and how the explanation is stored. Before writing it, find the setting:
 
 ```bash
-R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.explanations=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config.properties"; { cat "$R" ~/.ai/config.properties | grep '^persistence\.explanations[[:space:]]*=[[:space:]]*[^[:space:]]'; cat "$R" ~/.ai/config.properties | grep '^persistence[[:space:]]*=[[:space:]]*[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
 - No output: use `local-ai-folder-html`, the default for this skill group

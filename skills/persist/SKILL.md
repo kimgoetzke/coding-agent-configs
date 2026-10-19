@@ -21,7 +21,7 @@ A persistence implementation decides where and how output is stored. This skill 
 Once Step 3 has picked the group, find the setting, replacing `{group}` with `research` or `plans`:
 
 ```bash
-R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.{group}=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config.properties"; { cat "$R" ~/.ai/config.properties | grep '^persistence\.{group}[[:space:]]*=[[:space:]]*[^[:space:]]'; cat "$R" ~/.ai/config.properties | grep '^persistence[[:space:]]*=[[:space:]]*[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
 - No output: use `local-ai-folder-markdown`, the default for both skill groups

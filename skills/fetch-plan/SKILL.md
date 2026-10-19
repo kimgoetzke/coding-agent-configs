@@ -13,7 +13,7 @@ Use this skill to reopen an existing plan created with the `planning-mode` or `p
 This skill belongs to the `plans` skill group. A persistence implementation decides where and how plans are stored. Before listing or opening plans, find the setting:
 
 ```bash
-R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.plans=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config.properties"; { cat "$R" ~/.ai/config.properties | grep '^persistence\.plans[[:space:]]*=[[:space:]]*[^[:space:]]'; cat "$R" ~/.ai/config.properties | grep '^persistence[[:space:]]*=[[:space:]]*[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
 - No output: use `local-ai-folder-markdown`, the default for this skill group

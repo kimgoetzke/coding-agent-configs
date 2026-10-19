@@ -93,11 +93,11 @@ Each skill is somewhat opinionated, but there is no prescribed workflow - they w
 
 ### Project folder structure
 
-Skills that persist work choose how to store it from settings in `~/.ai/config` and `{repo root}/.ai/config`, or fall back to the group's default value. `persistence=` sets the implementation for all skills; `persistence.{skill group}=` sets it for one skill group:
+Skills that persist work choose how to store it from settings in `~/.ai/config.properties` and `{repo root}/.ai/config.properties`, or fall back to the group's default value. Both files use `.properties` syntax: one `key = value` per line, `#` for comment lines. `persistence` sets the implementation for all skills; `persistence.{skill group}` sets it for one skill group:
 
-```
-persistence=local-ai-folder-markdown
-persistence.reviews=local-ai-folder-html
+```properties
+persistence = local-ai-folder-markdown
+persistence.reviews = local-ai-folder-html
 ```
 
 | Skill group    | Skills                                                                                | Default                    |
@@ -133,7 +133,8 @@ your-project/
 │   │   └── 2026-04-01 my-topic.md
 │   ├── review/                           # /review-pr
 │   │   └── 2026-04-01 42 my-pr-title.md
-│   └── .active-mode                      # Temporary flag file (auto-cleared on session start)
+│   ├── .active-mode                      # Temporary flag file (auto-cleared on session start)
+│   └── config.properties                 # Optional repo-level persistence settings
 └── context.md                            # /grill-me, /improve-codebase
 ```
 

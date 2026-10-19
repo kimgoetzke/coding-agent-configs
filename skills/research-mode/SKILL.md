@@ -30,7 +30,7 @@ If you cannot determine which tool you are, ask the user.
 This skill belongs to the `research` skill group. A persistence implementation decides where and how research documents are stored. The `persist` skill creates them; this skill lists, opens and updates them. Before Step 3c or Step 4, find the setting:
 
 ```bash
-R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config"; { cat "$R" ~/.ai/config | grep '^persistence\.research=[^[:space:]]'; cat "$R" ~/.ai/config | grep '^persistence=[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
+R="$(git rev-parse --show-toplevel 2>/dev/null)/.ai/config.properties"; { cat "$R" ~/.ai/config.properties | grep '^persistence\.research[[:space:]]*=[[:space:]]*[^[:space:]]'; cat "$R" ~/.ai/config.properties | grep '^persistence[[:space:]]*=[[:space:]]*[^[:space:]]'; } 2>/dev/null | head -1 | tr -d ' \t\r'
 ```
 
 - No output: use `local-ai-folder-markdown`, the default for this skill group
