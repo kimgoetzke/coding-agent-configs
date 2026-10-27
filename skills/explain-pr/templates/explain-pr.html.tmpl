@@ -5,62 +5,65 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Explain PR #{{NUMBER}}: {{TITLE}}</title>
 <style>
+  /* Colours are light-dark(light, dark). The scheme follows the OS unless the
+     theme picker sets data-theme on <html>. */
   :root {
-    --bg: #ffffff;
-    --fg: #1f2328;
-    --muted: #57606a;
-    --border: #d0d7de;
-    --surface: #f6f8fa;
-    --accent: #0969da;
-    --add-bg: #e6ffec;
-    --add-fg: #1a7f37;
-    --del-bg: #ffebe9;
-    --del-fg: #cf222e;
-    --hunk-fg: #8250df;
+    color-scheme: light dark;
+    --bg: light-dark(#ffffff, #0d1117);
+    --fg: light-dark(#1f2328, #e6edf3);
+    --muted: light-dark(#57606a, #8b949e);
+    --quote-fg: light-dark(#424a53, #b7bfc8);
+    --border: light-dark(#d0d7de, #30363d);
+    --surface: light-dark(#f6f8fa, #161b22);
+    --accent: light-dark(#0969da, #2f81f7);
+    --add-bg: light-dark(#e6ffec, #1a2f23);
+    --add-fg: light-dark(#1a7f37, #56d364);
+    --del-bg: light-dark(#ffebe9, #3a1d20);
+    --del-fg: light-dark(#cf222e, #f85149);
+    --hunk-fg: light-dark(#8250df, #d2a8ff);
+    --hunk-bg: light-dark(#ddf4ff, #131d2e);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0d1117;
-      --fg: #e6edf3;
-      --muted: #8b949e;
-      --border: #30363d;
-      --surface: #161b22;
-      --accent: #2f81f7;
-      --add-bg: #1a2f23;
-      --add-fg: #56d364;
-      --del-bg: #3a1d20;
-      --del-fg: #f85149;
-      --hunk-fg: #d2a8ff;
-    }
-  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
   * { box-sizing: border-box; }
-  html { background: var(--bg); color: var(--fg); }
+  html { background: var(--bg); color: var(--fg); font-size: 17px; }
   body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    font-size: 16px;
+    font-size: 1rem;
     line-height: 1.6;
   }
-  article { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  article { max-width: max(1200px, 75vw); margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
   header { border-bottom: 1px solid var(--border); padding-bottom: 1.25rem; margin-bottom: 2rem; }
   header h1 { margin: 0 0 .25rem; font-size: 1.75rem; line-height: 1.25; }
-  header .meta { margin: 0; color: var(--muted); font-size: .9rem; }
+  header .meta { margin: 0; color: var(--muted); font-size: .9rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  header select {
+    font: inherit;
+    color: var(--fg);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: .15rem .4rem;
+  }
   header .meta a { color: var(--accent); text-decoration: none; }
   header .meta a:hover { text-decoration: underline; }
   h2 { margin-top: 2.5rem; margin-bottom: .75rem; font-size: 1.35rem; border-bottom: 1px solid var(--border); padding-bottom: .25rem; }
   h3 { margin-top: 1.75rem; margin-bottom: .5rem; font-size: 1.1rem; }
   p { margin: .75rem 0; }
   a { color: var(--accent); }
+  /* Verbatim PR body: --quote-fg sits between --muted and --fg so it reads
+     easily but stays distinct from the narrative text. */
   blockquote {
     margin: 0 0 1rem;
-    padding: .5rem 1rem;
-    border-left: 3px solid var(--border);
-    color: var(--muted);
+    padding: .75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--quote-fg);
     background: var(--surface);
-    border-radius: 0 6px 6px 0;
   }
-  blockquote p:first-child { margin-top: 0; }
-  blockquote p:last-child { margin-bottom: 0; }
+  blockquote > :first-child { margin-top: 0; }
+  blockquote > :last-child { margin-bottom: 0; }
+  blockquote code { background: var(--bg); }
   ul, ol { padding-left: 1.5rem; }
   li { margin: .25rem 0; }
   code {
@@ -113,8 +116,14 @@
     border: 1px solid var(--border);
     border-radius: 6px;
   }
+  /* Row 1: path and stats. Row 2 (segment stops only): segment title, aligned
+     with the path. The arrow sits in the left padding so it doesn't indent row 2. */
   .diff-wrapper > summary {
-    padding: .5rem 1rem;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    padding: .5rem 1rem .5rem 2rem;
     font-weight: 500;
     background: var(--surface);
     border-radius: 6px;
@@ -123,17 +132,21 @@
   .diff-wrapper > summary::-webkit-details-marker { display: none; }
   .diff-wrapper > summary::before {
     content: "▸ ";
-    display: inline-block;
+    position: absolute;
+    top: .5rem;
+    left: 1rem;
     color: var(--muted);
     transition: transform .15s ease;
   }
   .diff-wrapper[open] > summary {
     border-radius: 6px 6px 0 0;
     border-bottom: 1px solid var(--border);
+    margin-bottom: 0;
   }
   .diff-wrapper[open] > summary::before { content: "▾ "; }
   .diff-wrapper > summary .diff-seg {
-    margin-left: .5rem;
+    order: 1;
+    flex-basis: 100%;
     font-size: .8rem;
     color: var(--accent);
     font-weight: 600;
@@ -150,6 +163,8 @@
     margin: 0;
   }
   .diff { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 0; overflow-x: auto; margin: 1rem 0; }
+  /* Grow to the longest line so add/del backgrounds cover the full scroll width. */
+  .diff > code { display: block; width: max-content; min-width: 100%; }
   .diff .line {
     display: block;
     white-space: pre;
@@ -157,8 +172,12 @@
     font-size: .85rem;
     line-height: 1.5;
   }
+  /* Fixed height so empty gutters (old side of an add, new side of a del) keep
+     their background and border instead of collapsing to zero height. */
   .diff .ln {
     display: inline-block;
+    vertical-align: top;
+    height: 1.5em;
     width: 3.5rem;
     padding: 0 .5rem;
     text-align: right;
@@ -168,38 +187,35 @@
     -webkit-user-select: none;
     position: sticky;
   }
-  .diff .ln-old { left: 0; }
+  .diff .ln-old { left: 0; border-right: 1px solid var(--border); }
   .diff .ln-new { left: 3.5rem; border-right: 1px solid var(--border); }
   .diff .lc { padding: 0 1rem; }
   .diff .line.add { background: var(--add-bg); color: var(--add-fg); }
   .diff .line.del { background: var(--del-bg); color: var(--del-fg); }
-  .diff .line.hunk { color: var(--hunk-fg); font-weight: 600; }
+  .diff .line.hunk { color: var(--hunk-fg); font-weight: 600; background: var(--hunk-bg); }
+  .diff .line.hunk .ln { background: var(--hunk-bg); }
   .diff .line.meta { color: var(--muted); }
   footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--muted); font-size: .85rem; }
 </style>
 <style>
-/* highlight.js token theme (GitHub light + dark). Only .hljs-* token classes
-   are used — the diff add/del/hunk backgrounds come from the rules above. */
-pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5px}/*!
-  Theme: GitHub
-  Description: Light theme as seen on github.com
-  Author: github.com
-  Maintainer: @Hirse
-  Updated: 2021-05-15
-
-  Outdated base version: https://github.com/primer/github-syntax-light
-  Current colors taken from GitHub's CSS
-*/.hljs{color:#24292e;background:#fff}.hljs-doctag,.hljs-keyword,.hljs-meta .hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.language_{color:#d73a49}.hljs-title,.hljs-title.class_,.hljs-title.class_.inherited__,.hljs-title.function_{color:#6f42c1}.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable{color:#005cc5}.hljs-meta .hljs-string,.hljs-regexp,.hljs-string{color:#032f62}.hljs-built_in,.hljs-symbol{color:#e36209}.hljs-code,.hljs-comment,.hljs-formula{color:#6a737d}.hljs-name,.hljs-quote,.hljs-selector-pseudo,.hljs-selector-tag{color:#22863a}.hljs-subst{color:#24292e}.hljs-section{color:#005cc5;font-weight:700}.hljs-bullet{color:#735c0f}.hljs-emphasis{color:#24292e;font-style:italic}.hljs-strong{color:#24292e;font-weight:700}.hljs-addition{color:#22863a;background-color:#f0fff4}.hljs-deletion{color:#b31d28;background-color:#ffeef0}
-@media (prefers-color-scheme: dark){pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5px}/*!
-  Theme: GitHub Dark
-  Description: Dark theme as seen on github.com
-  Author: github.com
-  Maintainer: @Hirse
-  Updated: 2021-05-15
-
-  Outdated base version: https://github.com/primer/github-syntax-dark
-  Current colors taken from GitHub's CSS
-*/.hljs{color:#c9d1d9;background:#0d1117}.hljs-doctag,.hljs-keyword,.hljs-meta .hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.language_{color:#ff7b72}.hljs-title,.hljs-title.class_,.hljs-title.class_.inherited__,.hljs-title.function_{color:#d2a8ff}.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable{color:#79c0ff}.hljs-meta .hljs-string,.hljs-regexp,.hljs-string{color:#a5d6ff}.hljs-built_in,.hljs-symbol{color:#ffa657}.hljs-code,.hljs-comment,.hljs-formula{color:#8b949e}.hljs-name,.hljs-quote,.hljs-selector-pseudo,.hljs-selector-tag{color:#7ee787}.hljs-subst{color:#c9d1d9}.hljs-section{color:#1f6feb;font-weight:700}.hljs-bullet{color:#f2cc60}.hljs-emphasis{color:#c9d1d9;font-style:italic}.hljs-strong{color:#c9d1d9;font-weight:700}.hljs-addition{color:#aff5b4;background-color:#033a16}.hljs-deletion{color:#ffdcd7;background-color:#67060c}}
+/* highlight.js token theme: GitHub and GitHub Dark (github.com, maintained by
+   @Hirse, updated 2021-05-15), merged with light-dark() so it follows the theme
+   picker. Only .hljs-* token classes are used — the diff add/del/hunk
+   backgrounds come from the rules above. */
+.hljs-doctag,.hljs-keyword,.hljs-meta .hljs-keyword,.hljs-template-tag,.hljs-template-variable,.hljs-type,.hljs-variable.language_{color:light-dark(#d73a49,#ff7b72)}
+.hljs-title,.hljs-title.class_,.hljs-title.class_.inherited__,.hljs-title.function_{color:light-dark(#6f42c1,#d2a8ff)}
+.hljs-attr,.hljs-attribute,.hljs-literal,.hljs-meta,.hljs-number,.hljs-operator,.hljs-selector-attr,.hljs-selector-class,.hljs-selector-id,.hljs-variable{color:light-dark(#005cc5,#79c0ff)}
+.hljs-meta .hljs-string,.hljs-regexp,.hljs-string{color:light-dark(#032f62,#a5d6ff)}
+.hljs-built_in,.hljs-symbol{color:light-dark(#e36209,#ffa657)}
+.hljs-code,.hljs-comment,.hljs-formula{color:light-dark(#6a737d,#8b949e)}
+.hljs-name,.hljs-quote,.hljs-selector-pseudo,.hljs-selector-tag{color:light-dark(#22863a,#7ee787)}
+.hljs-subst{color:light-dark(#24292e,#c9d1d9)}
+.hljs-section{color:light-dark(#005cc5,#1f6feb);font-weight:700}
+.hljs-bullet{color:light-dark(#735c0f,#f2cc60)}
+.hljs-emphasis{color:light-dark(#24292e,#c9d1d9);font-style:italic}
+.hljs-strong{color:light-dark(#24292e,#c9d1d9);font-weight:700}
+.hljs-addition{color:light-dark(#22863a,#aff5b4);background-color:light-dark(#f0fff4,#033a16)}
+.hljs-deletion{color:light-dark(#b31d28,#ffdcd7);background-color:light-dark(#ffeef0,#67060c)}
 </style>
 </head>
 <body>
@@ -207,10 +223,32 @@ pre code.hljs{display:block;overflow-x:auto;padding:1em}code.hljs{padding:3px 5p
   <header>
     <h1>{{TITLE}}</h1>
     <p class="meta">
-      <a href="{{URL}}">PR #{{NUMBER}}</a> · {{AUTHOR}} ·
-      <code>{{HEAD_BRANCH}}</code> &rarr; <code>{{BASE_BRANCH}}</code>
+      <span>
+        <a href="{{URL}}">PR #{{NUMBER}}</a> · {{AUTHOR}} ·
+        <code>{{HEAD_BRANCH}}</code> &rarr; <code>{{BASE_BRANCH}}</code>
+      </span>
+      <select id="theme" aria-label="Colour theme">
+        <option value="">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
     </p>
   </header>
+  <script>
+  // Theme picker. The choice is kept in localStorage where the browser allows it
+  // for file:// pages; otherwise it lasts until the page is closed.
+  (function () {
+    var root = document.documentElement;
+    var select = document.getElementById("theme");
+    try { var saved = localStorage.getItem("explain-pr-theme"); if (saved) root.dataset.theme = saved; } catch (e) {}
+    select.value = root.dataset.theme || "";
+    select.addEventListener("change", function () {
+      if (select.value) root.dataset.theme = select.value;
+      else delete root.dataset.theme;
+      try { localStorage.setItem("explain-pr-theme", select.value); } catch (e) {}
+    });
+  })();
+  </script>
 
   <section id="description">
     <h2>1. PR description &amp; goal</h2>
