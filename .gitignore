@@ -14,3 +14,4 @@ CLAUDE.md
 .ai/planning/*
 !.ai/planning/2026-05-13 update-plan-ask-mode/*
 !.ai/planning/2026-06-01 update-pi-imports/*
+.playwright-mcp/
