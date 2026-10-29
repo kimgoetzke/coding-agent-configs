@@ -28,12 +28,15 @@ fi
 
 # Find project root by walking up to find mvnw
 DIR=$(dirname "$FILE_PATH")
-while [[ "$DIR" != "/" && "$DIR" != "." && -n "$DIR" ]]; do
+while [[ -n "$DIR" ]]; do
   if [[ -f "$DIR/mvnw" ]]; then
     cd "$DIR" && ./mvnw fmt:format -q > /dev/null 2>&1
     exit 0
   fi
-  DIR=$(dirname "$DIR")
+  # Stop at the root: dirname returns its input unchanged for "/", "." and Windows drives like "C:"
+  PARENT=$(dirname "$DIR")
+  [[ "$PARENT" == "$DIR" ]] && break
+  DIR=$PARENT
 done
 
 exit 0
