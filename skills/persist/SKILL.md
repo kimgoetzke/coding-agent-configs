@@ -76,7 +76,7 @@ Conduct the research, analysis, or investigation the user requested.
 
 ### Step 5: Persist findings
 
-Create the document containing the outcome of your work (analysis, findings, comparison, etc.). Write the content in Markdown; the persistence implementation decides how it is stored.
+Create the document containing the outcome of your work (analysis, findings, comparison, etc.). Use the format specified by the persistence implementation, or Markdown if it does not specify one.
 
 - Structure the document in whatever way is most appropriate for the task
 - Use visualisations (tables, diagrams, lists) where they add clarity but make sure they are in-lined in the output (e.g. only markdown in .md files)
