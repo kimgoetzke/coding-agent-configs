@@ -52,9 +52,11 @@ The script outputs one line per skill with a status prefix:
 | `UP_TO_DATE:<name>`      | No changes                                        |
 | `CHANGED:<name>`         | Files differ — diff follows until `END_DIFF` line |
 | `MISSING_LOCALLY:<name>` | Exists in repo but missing locally                |
+| `OBSOLETE_SKILL:<name>\|<replacement>` | Known skill rename; the old skill is still installed. |
+| `OBSOLETE_FILE:<path>\|<replacement>` | Known file rename; paths are relative to `$TARGET_DIR`. |
 | `ALL_UP_TO_DATE`         | No updates available at all                       |
 
-Skills that exist locally but not in the remote repo are ignored.
+Ignore local-only skills unless the script reports them as obsolete.
 
 ### 4. Present results to the user
 
@@ -63,13 +65,21 @@ Skills that exist locally but not in the remote repo are ignored.
   - List the skill name and summarise what changed (files added/removed/modified)
   - Show the diff in a code block
   - Ask the user if they want to apply this update
+- For each obsolete skill or file, name the old path and the replacement. Ask separately whether to delete the old path. Approval to install the replacement does not authorise deletion.
 
-### 5. Apply updates
+### 5. Apply updates and approved deletions
 
 For each skill the user approves, run:
 
 ```bash
 bash "$SKILL_DIR/scripts/apply-update.sh" "$TARGET_DIR" <skill-name>
+```
+
+Apply selected updates first. Then, for each approved deletion, verify the replacement exists locally. If it is missing, leave the old path in place and report why.
+
+```bash
+bash "$SKILL_DIR/scripts/apply-deletion.sh" "$TARGET_DIR" skill <obsolete-skill-name>
+bash "$SKILL_DIR/scripts/apply-deletion.sh" "$TARGET_DIR" file <obsolete-relative-path>
 ```
 
 Report success or failure for each.
@@ -79,6 +89,7 @@ Report success or failure for each.
 After processing all skills, print a summary:
 
 - How many skills were updated
+- How many obsolete skills and files were deleted
 - How many were skipped
 - How many were already up to date
 

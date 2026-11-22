@@ -10,14 +10,17 @@
 #   UP_TO_DATE:<skill-name>
 #   CHANGED:<skill-name>
 #   MISSING_LOCALLY:<skill-name>  (exists in repo but not locally)
+#   OBSOLETE_SKILL:<name>|<replacement>
+#   OBSOLETE_FILE:<path>|<replacement>
 #
 # When CHANGED, the diff follows until a line containing only "END_DIFF".
-# Skills that exist locally but not in the repo are silently ignored.
+# Local-only skills are ignored unless they match a known migration.
 
 set -euo pipefail
 
 SKILLS_DIR="${1:?Usage: check-updates.sh <skills-dir>}"
-REPO_URL="https://github.com/kimgoetzke/coding-agent-configs.git"
+REPO_URL="${REPO_URL:-https://github.com/kimgoetzke/coding-agent-configs.git}"
+source "$(dirname -- "${BASH_SOURCE[0]}")/obsolete-paths.sh"
 
 # Shallow-clone only the skills/ directory into a temp dir
 TMPDIR_REMOTE=$(mktemp -d)
@@ -55,6 +58,26 @@ for skill_dir in "$REMOTE_SKILLS"/*/; do
     echo "CHANGED:$skill_name"
     diff -ru "$local_skill" "$skill_dir" 2>/dev/null || true
     echo "END_DIFF"
+    HAS_UPDATES=true
+  fi
+done
+
+for entry in "${OBSOLETE_SKILLS[@]}"; do
+  name=${entry%%|*}
+  replacement=${entry#*|}
+  if [[ -d "$SKILLS_DIR/$name" && ! -e "$REMOTE_SKILLS/$name" && -f "$REMOTE_SKILLS/$replacement/SKILL.md" ]] &&
+      no_symlink_components "$SKILLS_DIR" "$name"; then
+    printf 'OBSOLETE_SKILL:%s\n' "$entry"
+    HAS_UPDATES=true
+  fi
+done
+
+for entry in "${OBSOLETE_FILES[@]}"; do
+  path=${entry%%|*}
+  replacement=${entry#*|}
+  if [[ -f "$SKILLS_DIR/$path" && ! -e "$REMOTE_SKILLS/$path" && -f "$REMOTE_SKILLS/$replacement" ]] &&
+      no_symlink_components "$SKILLS_DIR" "$path"; then
+    printf 'OBSOLETE_FILE:%s\n' "$entry"
     HAS_UPDATES=true
   fi
 done
