@@ -1,6 +1,6 @@
 ---
 name: planning-mode
-description: Toggle persistent planning mode on/off. When on, hook support can remind the agent to keep planning documents updated throughout the conversation, with manual fallback if unavailable. Combines the full planning workflow with persistent mode for long-running planning and implementation sessions. Use with a topic to start, with "continue" to resume an existing plan, or with "off" to stop.
+description: Toggles persistent planning for long-running sessions, with hook reminders or manual updates. Use only when the user asks for planning mode or invokes /planning-mode with a topic to start, "continue" to resume, or "off" to stop. Use the planning skill for one-off plans.
 argument-hint: [work to plan | 'continue' | 'off' | empty to start without topic]
 ---
 
