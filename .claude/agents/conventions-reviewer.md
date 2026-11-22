@@ -64,14 +64,14 @@ After all findings, include:
 ```markdown
 ### Recommended score
 
-**Score:** [Red / Amber / Green]
+**Score:** [Amber / Yellow / Green]
 **Rationale:** [1-2 sentences justifying the score]
 ```
 
 Scoring guide:
 
-- **Red**: pervasive convention violations that would set a bad precedent if merged
-- **Amber**: a few meaningful convention issues (e.g. incorrect naming that would confuse readers)
+- **Amber**: pervasive convention violations or meaningful issues that would confuse readers
+- **Yellow**: only minor style issues
 - **Green**: code follows conventions; no meaningful style issues
 
 If conventions look good, say so explicitly and recommend Green.

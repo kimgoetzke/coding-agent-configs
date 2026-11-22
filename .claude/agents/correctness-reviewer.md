@@ -59,14 +59,14 @@ After all findings, include:
 ```markdown
 ### Recommended score
 
-**Score:** [Red / Amber / Green]
+**Score:** [Amber / Yellow / Green]
 **Rationale:** [1-2 sentences justifying the score]
 ```
 
 Scoring guide:
 
-- **Red**: at least one critical bug or logic error that would cause incorrect behaviour in production
-- **Amber**: major issues that could cause problems under certain conditions, or multiple minor issues
+- **Amber**: a critical bug or other significant correctness issue
+- **Yellow**: only minor issues
 - **Green**: no correctness issues found, or only trivial observations
 
 If you find no issues, say so explicitly and recommend Green.

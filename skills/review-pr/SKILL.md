@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a GitHub pull request for correctness, security, observability, test coverage, and conventions. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension red-amber-yellow-green, and produce a structured review that is persisted and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
+description: Review a GitHub pull request for correctness, security, observability, test coverage, conventions and PR description quality. Identify applicable skills, verify and triage sub-agent findings to cut noise, score each review dimension red-amber-yellow-green, and produce a structured review that is persisted and presented to the user. Use when user asks to review a PR, check a pull request, or give feedback on changes in a PR.
 argument-hint: [PR number or URL | empty to detect the PR for the current branch]
 ---
 
@@ -39,7 +39,7 @@ Once you have read the code you can no longer tell which parts of your explanati
 Run `gh --version`. If `gh` is not found, tell the user it is required to fetch the PR or post anything back, and ask whether to continue regardless.
 
 - If they decline, stop.
-- If they accept: skip steps 2 to 4, diff the current branch against its base with `git diff` in step 5, record `no PR metadata — gh unavailable` in the review metadata fields you cannot fill, and skip posting in step 10.
+- If they accept: skip steps 2 to 4, diff the current branch against its base with `git diff` in step 5, record `no PR metadata — gh unavailable` in the review metadata fields you cannot fill, mark the PR description `Not reviewed — no PR metadata`, and skip posting in step 10.
 
 ## Step 2: Resolve the PR
 
@@ -82,8 +82,8 @@ Find an existing review for the PR number. On multiple matches, take the one who
 
 **If a review exists**, compare its `last_reviewed_commit` against the latest commit from step 3:
 
-- **Equal** — tell the user the PR is already reviewed up to the latest commit, and ask whether to review again anyway. If not, stop.
-- **Different** — this is a re-review: scope the diff in step 5 to the new commits, and update the existing review rather than creating one.
+- **Equal** — the code is already reviewed. Ask whether to check just the title and description (which can change without a commit), re-review everything, or stop. For a description-only re-review, keep all code findings and scores unchanged. For a full re-review at the same commit, use the full diff for every reviewer.
+- **Different** — this is a re-review: scope the code diff in step 5 to the new commits, and update the existing review rather than creating one.
 
 ## Step 5: Analyse the diff
 
@@ -98,9 +98,11 @@ Find an existing review for the PR number. On multiple matches, take the one who
 - Convention skills matching the file types in the diff (e.g. `rust-test-conventions`, `rust-standards`) — read their SKILL.md
 - Keep a list of every skill consulted, `review-pr` included; it goes in the output document and your final response
 
-**Spawn the review sub-agents in parallel**, one per dimension: `correctness-reviewer`, `security-reviewer`, `test-reviewer`, `conventions-reviewer`, `observability-reviewer`.
+**Spawn the review sub-agents in parallel.** For code, use `correctness-reviewer`, `security-reviewer`, `test-reviewer`, `conventions-reviewer` and `observability-reviewer`. Skip them on a description-only re-review.
 
-Every sub-agent prompt must include:
+For PR text, give `pr-description-reviewer` the current title, body, the full `gh pr diff {number}` (even on a re-review), and `.github/pull_request_template.md` or `.github/PULL_REQUEST_TEMPLATE.md` if present. Do not send the code evidence rules below; use the description agent's own finding format. If the PR metadata or full diff is unavailable, skip this agent and record `Not reviewed` with the reason.
+
+Every code review sub-agent prompt must include:
 
 - The diff, plus the convention references gathered above — test conventions to `test-reviewer`, project and language conventions to `conventions-reviewer`, telemetry conventions to `observability-reviewer` (which already has basic OTel conventions embedded)
 - A reminder to return findings with file paths, line numbers and a severity
@@ -124,7 +126,9 @@ Every sub-agent prompt must include:
 
 The sub-agents are deliberately sensitive and over-report. You verify every candidate before it reaches the review document — a review full of wrong or silly suggestions is worse than a short, sharp one.
 
-For each candidate finding:
+For each PR description finding, confirm the quote is verbatim in the cited title or body section. For a contradiction, verify the cited diff line conflicts with the quote; for duplication, verify it says the same thing. For repetition or process narration, check the repeated passage or whether the narration adds useful context. Discard findings that fail verification. Keep confirmed description findings at Yellow; they have no inline anchor.
+
+For each code finding:
 
 1. **Confirm it is true.** Read the referenced lines and their surrounding context. Common failure modes: the finding misreads the code, the "missing" handling exists elsewhere, a test or a type already covers it, or the suggestion contradicts a project convention.
 2. **Check the `Evidence:` citations.** Open each `path:line` and confirm it says what the finding claims. A citation that does not resolve, or does not support the claim, discredits the finding — discard it.
@@ -189,7 +193,7 @@ flowchart TD
 
 ## Step 8: Score each review dimension
 
-Give each dimension — correctness & logic, security, tests, style & conventions, observability — the highest tier among its surviving findings, plus a one-line rationale.
+Give each reviewed dimension the highest tier among its surviving findings, plus a one-line rationale. The PR description is Yellow if any finding survives, Green otherwise. If it was skipped, record `Not reviewed` and why; do not imply it passed.
 
 Do not inflate: reserve red for true blockers, and do not push a genuine minor nit up to amber because it is the only finding. Conditional findings cap at yellow, so a dimension whose findings are all conditional cannot score amber or red.
 
@@ -203,7 +207,7 @@ Create the review `{yyyy-mm-dd} {pr-number} {pr-title-abbreviated}`, where `{pr-
 {severity emoji} **[{status}]** {⚠️ Conditional, if it is} — `path:line` — {headline}
 ```
 
-Any severity pairs with any status (`[New]`, `[Unresolved]`, `[Resolved]`) — a resolved finding keeps the severity it was first given, and on an initial review everything is `[New]`. The `path:line` is mandatory: it anchors the inline comment in step 10. The headline says what goes wrong in the reader's terms, not in the code's: "Tokens from the legacy issuer crash instead of returning 401", not "missing null check in `resolve()`".
+Any severity pairs with any status (`[New]`, `[Unresolved]`, `[Resolved]`) — a resolved finding keeps the severity it was first given, and on an initial review everything is `[New]`. The `path:line` anchors a code finding's inline comment in step 10. For description findings use `PR title`, `PR description`, or `PR description — {section}` instead. The headline says what goes wrong in the reader's terms, not in the code's: "Tokens from the legacy issuer crash instead of returning 401", not "missing null check in `resolve()`".
 
 What follows the header depends on the tier. **Red and amber take the full shape; yellow stays a single sentence.** A minor finding does not earn four headings, and a blocker is not something the author should have to reconstruct from one.
 
@@ -288,6 +292,7 @@ The step 7 diagram, where the finding has one, goes last — after everything ab
 | Tests               | {tier} | {brief rationale} |
 | Style & conventions | {tier} | {brief rationale} |
 | Observability       | {tier} | {brief rationale} |
+| PR description      | {tier} | {brief rationale} |
 
 ## Skills Used For This Review
 
@@ -304,6 +309,8 @@ The step 7 diagram, where the finding has one, goes last — after everything ab
 
 ## Review Dimension: Observability
 
+## Review Dimension: PR Description
+
 ## Review History
 
 | Date   | Commit       | Type       | Notes          |
@@ -311,11 +318,11 @@ The step 7 diagram, where the finding has one, goes last — after everything ab
 | {date} | {short hash} | New review | Initial review |
 ```
 
-Under each dimension heading, list that dimension's findings in the format above, most important first; where a dimension has none, write "No issues found." Score cells take the colour name — `🟠 Amber`.
+Under each reviewed dimension, list findings in the format above, most important first, or write "No issues found." Within PR Description, put contradictions first. Score cells take the colour name — `🟠 Amber` — or `Not reviewed` with the reason.
 
 **For a re-review**, add a Review History row and update the findings:
 
-- Reassess every finding not already `[Resolved]`: change it to `[Resolved]` if the new commits addressed it, keeping its original severity, or from `[New]` to `[Unresolved]` if it persists
+- In each re-reviewed dimension, reassess every finding not already `[Resolved]`. Mark it `[Resolved]` if the current code or PR text no longer has the issue, or `[Unresolved]` if it persists; keep its original severity. Leave findings from skipped dimensions unchanged.
 - Add net-new findings as `[New]`
 - Rescore from `[New]` and `[Unresolved]` findings only, and update the table and rationales
 - Update `last_reviewed`, `last_reviewed_commit`, and the skills list
@@ -336,10 +343,11 @@ Summarise for the user: findings by severity and dimension (noting how many are 
 
 - **Post 🔴 red and 🟠 amber findings only, by default.** 🟡 yellow findings stay in the persisted review and are not posted.
 - **Post yellow as well only when the user asks for it**, in words like "post everything", "include the minor ones" or "all findings". Asking you to post is not asking you to post yellow: when the instruction is a bare "post it", the default holds
+- On re-review, post only eligible findings from dimensions reviewed in this pass; do not re-post resolved or skipped findings.
 - With nothing to post, post the body alone
 - Never use `--request-changes`, even for blockers — the event is always `COMMENT`
 
-**The review body** is the score table — no finding detail, that lives in the inline comments. Never reference the persisted review; other readers of the PR may not be able to open it. End with `This review was generated by {agent} {model}.` — the tool (e.g. Claude Code, GitHub Copilot, Pi) and the model (e.g. Opus 5, Sonnet 5).
+**The review body** is the score table — no finding detail, that lives in the inline comments. Never reference the persisted review; other readers of the PR may not be able to open it. End with `This review was generated by {agent} {model}.` Use the tool and model actually running the review. Name only the tool if unsure of the model.
 
 **Each inline comment** opens with the tier and dimension — e.g. `🟠 **Amber (Important)** — Correctness & logic` — then the finding in the format above, diagram included: GitHub renders Mermaid in comments. Drop only the quoted code block from a full-shape finding — GitHub already shows the anchored lines directly above the comment — and keep **What this code does**, **What goes wrong** and **How I checked** intact. They are what let a reviewer who did not write the code follow the thread. Use a GitHub `suggestion` block where a concrete replacement is obvious, but only for a confirmed finding: a one-click fix on a conditional one invites the author to apply a change nobody has verified is needed. Conditional findings keep their marker, question phrasing and `Holds if:` bullets, because the author is the one person who can settle the assumption.
 
@@ -363,5 +371,5 @@ gh api repos/{owner/repo}/pulls/{number}/reviews --input "$payload"
 
 - Lines must exist in the PR diff — the API rejects the whole review if any comment points outside it, so check the hunks before choosing a line
 - Use `"side": "LEFT"` for a removed line
-- A finding with no sensible anchor (e.g. "this test file is missing entirely") goes in the body under a short `### Not anchored to a line` heading rather than being dropped
+- A finding with no sensible anchor (e.g. a missing test file or a PR description finding) goes in the body under `### Not anchored to a line`, but only if it qualifies for posting under the severity rules above
 - If the API rejects the payload, fix the anchors and retry — do not silently fall back to one big `gh pr review --comment`

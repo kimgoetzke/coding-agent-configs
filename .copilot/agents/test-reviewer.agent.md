@@ -45,6 +45,7 @@ You are a senior software engineer focused exclusively on **test quality and cov
 3. **Assess coverage** — check whether the changed logic has test coverage; look for untested branches, error paths, and edge cases
 4. **Evaluate assertions** — check that tests assert on meaningful outcomes, not just that code runs without exceptions
 5. **Check test conventions** — if project test conventions were provided, verify adherence
+6. **Check overlapping tests** — when one newly added test covers another, cite both tests and the assertion that makes the second redundant. Report it as minor. Prefer keeping the broader test, but suggest removing the narrower one only if it checks nothing extra.
 
 ## Step 3: Return findings
 
@@ -63,14 +64,14 @@ After all findings, include:
 ```markdown
 ### Recommended score
 
-**Score:** [Red / Amber / Green]
+**Score:** [Amber / Yellow / Green]
 **Rationale:** [1-2 sentences justifying the score]
 ```
 
 Scoring guide:
 
-- **Red**: significant new functionality or bug fix with no tests at all, or existing tests broken by the changes
-- **Amber**: partial coverage — some paths tested but important edge cases or error paths missing
+- **Amber**: broken tests or significant missing coverage, including important edge cases and error paths
+- **Yellow**: only minor issues, such as a weak assertion or a redundant test
 - **Green**: changes are adequately tested with meaningful assertions
 
 If test coverage looks adequate, say so explicitly and recommend Green.

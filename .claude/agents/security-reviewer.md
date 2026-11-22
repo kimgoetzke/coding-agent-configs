@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-description: Reviews code for security vulnerabilities
+description: Reviews code changes for injection, broken authentication or authorisation, exposed secrets and insecure data handling. Use as a sub-agent of `review-pr` for Security.
 tools: Read, Grep, Glob, Bash
 color: green
 model: opus
@@ -52,14 +52,14 @@ After all findings, include:
 ```markdown
 ### Recommended score
 
-**Score:** [Red / Amber / Green]
+**Score:** [Amber / Yellow / Green]
 **Rationale:** [1-2 sentences justifying the score]
 ```
 
 Scoring guide:
 
-- **Red**: at least one critical security vulnerability that could be exploited in production
-- **Amber**: major issues that could cause problems under certain conditions, or multiple minor issues
+- **Amber**: a critical vulnerability or other significant security issue
+- **Yellow**: only minor issues
 - **Green**: no security issues found, or only trivial observations
 
 If you find no issues, say so explicitly and recommend Green.

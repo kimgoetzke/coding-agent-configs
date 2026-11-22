@@ -121,14 +121,14 @@ After all findings, include:
 ```markdown
 ### Recommended score
 
-**Score:** [Red / Amber / Green]
+**Score:** [Amber / Yellow / Green]
 **Rationale:** [1-2 sentences justifying the score]
 ```
 
 Scoring guide:
 
-- **Red**: critical telemetry missing on error paths or business-critical operations; existing telemetry is actively incorrect
-- **Amber**: meaningful gaps in coverage or naming violations, but core paths are instrumented
-- **Green**: telemetry coverage is adequate; only minor improvements possible
+- **Amber**: significant telemetry gaps, incorrect telemetry, or meaningful convention violations
+- **Yellow**: only minor observability gaps
+- **Green**: telemetry coverage is adequate, with no gaps worth raising
 
 If coverage looks adequate, say so explicitly and recommend Green.
