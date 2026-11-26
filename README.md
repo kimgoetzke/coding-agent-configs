@@ -102,7 +102,7 @@ persistence.reviews = local-ai-folder-html
 
 | Skill group    | Skills                                                                                | Default                    |
 | -------------- | ------------------------------------------------------------------------------------- | -------------------------- |
-| `plans`        | `planning`, `planning-mode`, `fetch-plan`, `update-plan`, `improve-a-plan`, `persist` | `local-ai-folder-markdown` |
+| `plans`        | `planning`, `planning-mode`, `resume-plan`, `update-plan`, `improve-plan`, `persist` | `local-ai-folder-markdown` |
 | `research`     | `persist`, `research-mode`                                                            | `local-ai-folder-markdown` |
 | `insights`     | `aha`                                                                                 | `local-ai-folder-markdown` |
 | `reviews`      | `review-pr`                                                                           | `local-ai-folder-markdown` |

@@ -1,10 +1,10 @@
 ---
-name: fetch-plan
+name: resume-plan
 description: Retrieve saved plans, let the user choose one, then load its planning documents and summarise implementation status. Use when user asks to fetch, reopen, resume, continue, or inspect an existing plan.
 argument-hint: [empty to list available | full or partial plan name]
 ---
 
-# Fetch a Saved Plan
+# Resume a Saved Plan
 
 Use this skill to reopen an existing plan created with the `planning-mode` or `planning` skill.
 

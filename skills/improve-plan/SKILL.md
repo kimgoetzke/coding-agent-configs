@@ -1,6 +1,6 @@
 ---
-name: improve-a-plan
-description: Review, criticise and/or test an existing plan with the goal of improving is. Use when user asks you to review or improve a plan.
+name: improve-plan
+description: Review, criticise and/or test an existing plan with the goal of improving it. Use when user asks you to review or improve a plan.
 argument-hint: [full or partial plan name | empty to resolve from context]
 disable-model-invocation: true
 ---

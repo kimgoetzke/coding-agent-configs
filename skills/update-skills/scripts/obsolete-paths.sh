@@ -2,6 +2,8 @@
 # Installed paths migrated by coco. Format: old-path|replacement-path.
 OBSOLETE_SKILLS=(
   'persistent-memory|persist'
+  'improve-a-plan|improve-plan'
+  'fetch-plan|resume-plan'
 )
 OBSOLETE_FILES=(
   'research-mode/scripts/clear-research-mode.sh|research-mode/scripts/clear-mode.sh'
