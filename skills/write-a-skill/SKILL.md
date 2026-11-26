@@ -105,7 +105,7 @@ Scripts save tokens and improve reliability vs generated code.
 
 Split into separate files when the skill contains optional elements that don't always apply and don't always need to be read.
 
-For example, a `review-pr` skill keeps its core workflow in `SKILL.md` but stores language-specific conventions in `java.md` or `rust.md` — only loaded when reviewing code in that language.
+For example, a code-review skill could keep its core workflow in `SKILL.md` and store language-specific conventions in `java.md` or `rust.md`, loaded only when reviewing code in that language.
 
 ## Review checklist
 
