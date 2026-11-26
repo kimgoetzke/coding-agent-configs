@@ -1,0 +1,12 @@
+Sources:
+- https://github.com/mattpocock/skills/blob/ab7196a1584ac60688aeb63cf0b56a5114c4a6f3/skills/productivity/write-a-skill/SKILL.md (the original write-a-skill skill)
+- https://github.com/mattpocock/skills/blob/main/skills/productivity/writing-for-agents
+License: MIT License
+Changes:
+- This skill merges Matt Pocock's original write-a-skill skill with it's newer writing-for-agents skill
+- Uses the write-a-skill skill as a baseline but modified it in several ways:
+  - Naming conventions
+  - Removed max. word count
+  - Guidance for using decomposing SKILL.md
+  - Skill folder structure
+- Invocation, description pruning and writing guidance adapted from skills/productivity/writing-for-agents

@@ -1,5 +1,5 @@
 ---
-name: write-a-skill
+name: write-skill
 description: Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, or build a new skill.
 argument-hint: [skill to write | empty for interactive mode]
 ---
@@ -8,11 +8,12 @@ argument-hint: [skill to write | empty for interactive mode]
 
 ## Process
 
-1. **Gather requirements** - ask user about:
+1. **Gather requirements** - if not provided in the prompt, ask user about:
    - What task/domain does the skill cover?
    - What specific use cases should it handle?
    - Does it need executable scripts or just instructions?
    - Any reference materials to include?
+   - Should the agent invoke it on its own, or only the user (see [Invocation](#invocation))?
 
 2. **Draft the skill** - create:
    - SKILL.md with concise instructions
@@ -91,6 +92,29 @@ Helps with documents.
 
 The bad example gives your agent no way to distinguish this from other document skills.
 
+Every word of a description sits in context on every turn, so prune it hard:
+
+- List one trigger per distinct case the skill handles. Synonyms for the same case are one trigger written twice; keep one.
+- Leave out detail the body already covers.
+
+## Invocation
+
+Choose who can invoke the skill:
+
+- **Model-invoked** (default): the agent can load it on its own and other skills can reach it. The user can still invoke it by name. The description costs context on every turn, so pick this only when the agent or another skill must reach it unprompted. Write the description for the agent, with triggers, as above.
+- **User-invoked**: set `disable-model-invocation: true` in the frontmatter. Only the user typing its name can invoke it, and other skills cannot. It costs no context, but the user has to remember it exists. Write the description for a human: a one-line summary, no trigger list.
+
+Reference that several user-invoked skills need cannot live in any one of them, because none can load another. Put it in a plain file outside the skills and point to it from each skill.
+
+## Writing instructions
+
+- End every step on a condition the agent can check. "Every modified model accounted for" is checkable; "understand the code" is not, and invites the agent to stop early.
+- State the behaviour you want. "Write one-line comments" works better than "don't write long comments", because naming the unwanted behaviour primes it. Use a prohibition only as a hard guardrail you cannot phrase positively, and pair it with the positive target.
+- Prune before finishing:
+  - Delete any sentence the model would follow anyway without being told.
+  - Leave anything the agent can look up in one step (`package.json` scripts, config files, `--help` output) to the environment. Record what it cannot find: unwritten conventions, the reason behind a choice, gotchas.
+  - Keep each rule in one place. A duplicate costs tokens and goes stale.
+
 ## When to add scripts
 
 Add utility scripts when:
@@ -111,8 +135,12 @@ For example, a code-review skill could keep its core workflow in `SKILL.md` and 
 
 After drafting, verify:
 
-- [ ] Description includes triggers ("Use when...")
+- [ ] Description includes triggers ("Use when...") if model-invoked, or is a one-line human summary if user-invoked
+- [ ] `disable-model-invocation: true` set if only the user should invoke it
 - [ ] SKILL.md
+- [ ] Every step ends on a checkable condition
+- [ ] Instructions state the wanted behaviour, not only what to avoid
+- [ ] No sentences the model would follow by default, no restated config or duplicated rules
 - [ ] No time-sensitive info
 - [ ] Consistent terminology
 - [ ] Concrete examples included
