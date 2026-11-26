@@ -1,0 +1,3 @@
+Source: https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md
+License: Apache Software License 2.0
+Changes: Nothing, this is literally a 1:1 copy.
