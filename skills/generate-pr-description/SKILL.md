@@ -2,7 +2,6 @@
 name: generate-pr-description
 description: Generates a concise pull request description from a PR or the current branch. Use only when explicitly invoked by the user to draft PR text.
 argument-hint: [PR number or URL | empty for current branch]
-disable-model-invocation: true
 ---
 
 # Generate PR description
@@ -22,8 +21,12 @@ Generate the PR description without wrapping it in a code fence. Never post or e
 
 Describe outcomes and observable behaviour, not the editing process.
 
-- Use 1–5 bullets; target at most 15 words each.
-- Keep one distinct change per bullet and group closely related implementation details.
+- Include only what a reviewer must know to understand the PR. Apply this test to every bullet and sub-bullet; cut whatever fails it.
+- Write one top-level bullet per distinct change. Most PRs need 1–3; more than 5 usually means a detail was promoted or trivia slipped in.
+- Nest a detail under the change it belongs to; never give it its own top-level bullet.
+  - Most bullets need no sub-bullets. Add one only when the change would be misunderstood without it.
+- The counts above are expectations, not limits. Never drop key information to shorten the list, and never add a bullet or sub-bullet to fill it.
+- Target at most 15 words per bullet or sub-bullet.
 - Prefer product or user-facing behaviour over file names and implementation mechanics.
 - Include internal changes only when they are the substance of the PR or materially affect maintainers.
 - Omit tests, formatting, generated files, routine wiring, and incidental refactors from feature or fix PRs.
@@ -46,7 +49,7 @@ Use no more than three succinct bullets. Do not add routine test, deployment, or
 
 ## 3. Output
 
-Use this exact structure, omitting `### Notes` entirely when unnecessary:
+Use this exact structure, omitting sub-bullets and `### Notes` entirely when unnecessary:
 
 ```markdown
 ## Description
@@ -56,6 +59,7 @@ Use this exact structure, omitting `### Notes` entirely when unnecessary:
 This PR:
 
 - <succinct change>
+  - <critical detail of that change, only if needed>
 - <succinct change>
 
 ### Why? Motivation and context
