@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Installed paths migrated by coco. Format: old-path|replacement-path.
+# Leave replacement-path empty ('old-path|') to deprecate a path with no successor.
 OBSOLETE_SKILLS=(
   'persistent-memory|persist'
   'improve-a-plan|improve-plan'

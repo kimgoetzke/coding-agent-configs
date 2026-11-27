@@ -10,8 +10,8 @@
 #   UP_TO_DATE:<skill-name>
 #   CHANGED:<skill-name>
 #   MISSING_LOCALLY:<skill-name>  (exists in repo but not locally)
-#   OBSOLETE_SKILL:<name>|<replacement>
-#   OBSOLETE_FILE:<path>|<replacement>
+#   OBSOLETE_SKILL:<name>|<replacement>  (replacement is empty for a deprecated skill)
+#   OBSOLETE_FILE:<path>|<replacement>   (replacement is empty for a deleted file)
 #
 # When CHANGED, the diff follows until a line containing only "END_DIFF".
 # Local-only skills are ignored unless they match a known migration.
@@ -65,7 +65,9 @@ done
 for entry in "${OBSOLETE_SKILLS[@]}"; do
   name=${entry%%|*}
   replacement=${entry#*|}
-  if [[ -d "$SKILLS_DIR/$name" && ! -e "$REMOTE_SKILLS/$name" && -f "$REMOTE_SKILLS/$replacement/SKILL.md" ]] &&
+  # An empty replacement marks a deprecated skill, with nothing to install instead.
+  if [[ -d "$SKILLS_DIR/$name" && ! -e "$REMOTE_SKILLS/$name" ]] &&
+      [[ -z "$replacement" || -f "$REMOTE_SKILLS/$replacement/SKILL.md" ]] &&
       no_symlink_components "$SKILLS_DIR" "$name"; then
     printf 'OBSOLETE_SKILL:%s\n' "$entry"
     HAS_UPDATES=true
@@ -75,7 +77,8 @@ done
 for entry in "${OBSOLETE_FILES[@]}"; do
   path=${entry%%|*}
   replacement=${entry#*|}
-  if [[ -f "$SKILLS_DIR/$path" && ! -e "$REMOTE_SKILLS/$path" && -f "$REMOTE_SKILLS/$replacement" ]] &&
+  if [[ -f "$SKILLS_DIR/$path" && ! -e "$REMOTE_SKILLS/$path" ]] &&
+      [[ -z "$replacement" || -f "$REMOTE_SKILLS/$replacement" ]] &&
       no_symlink_components "$SKILLS_DIR" "$path"; then
     printf 'OBSOLETE_FILE:%s\n' "$entry"
     HAS_UPDATES=true

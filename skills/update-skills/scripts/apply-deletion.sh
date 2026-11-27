@@ -21,13 +21,17 @@ for entry in "${entries[@]}"; do
     printf 'ERROR: Refusing to delete symlinked path: %s\n' "$target" >&2
     exit 1
   fi
-  replacement="$skills_dir/${entry#*|}"
-  if [[ "$type" == skill ]]; then
-    replacement+=/SKILL.md
-  fi
-  if [[ ! -f "$replacement" ]]; then
-    printf 'ERROR: Install the replacement before deleting %s: %s\n' "$target" "$replacement" >&2
-    exit 1
+  # An empty replacement marks a deprecated path, with nothing to install first.
+  replacement_name=${entry#*|}
+  if [[ -n "$replacement_name" ]]; then
+    replacement="$skills_dir/$replacement_name"
+    if [[ "$type" == skill ]]; then
+      replacement+=/SKILL.md
+    fi
+    if [[ ! -f "$replacement" ]]; then
+      printf 'ERROR: Install the replacement before deleting %s: %s\n' "$target" "$replacement" >&2
+      exit 1
+    fi
   fi
   if [[ "$type" == skill && -d "$target" ]]; then
     rm -r -- "$target"

@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-scripts=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+source_scripts=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 workspace=$(mktemp -d)
 trap 'rm -rf -- "$workspace"' EXIT
+# Test a copy of the scripts with a deprecated skill added, since the real list may have none.
+scripts="$workspace/scripts"
+cp -R "$source_scripts" "$scripts"
+printf "OBSOLETE_SKILLS+=('deprecated-skill|')\n" >> "$scripts/obsolete-paths.sh"
 remote="$workspace/remote"
 local_skills="$workspace/installed skills"
 mkdir -p "$remote/skills/keep-local" "$remote/skills/persist" "$remote/skills/research-mode/scripts"
@@ -15,13 +19,14 @@ git -C "$remote" add skills
 git -C "$remote" -c user.name=Test -c user.email=test@example.com -c commit.gpgsign=false commit -qm fixture
 
 cp -R "$remote/skills" "$local_skills"
-mkdir -p "$local_skills/persistent-memory" "$local_skills/custom"
+mkdir -p "$local_skills/persistent-memory" "$local_skills/deprecated-skill" "$local_skills/custom"
 touch "$local_skills/research-mode/scripts/clear-research-mode.sh"
 
 check() { REPO_URL="file://$remote" bash "$scripts/check-updates.sh" "$local_skills"; }
 delete() { bash "$scripts/apply-deletion.sh" "$local_skills" "$@"; }
 output=$(check)
 grep -qxF 'OBSOLETE_SKILL:persistent-memory|persist' <<< "$output"
+grep -qxF 'OBSOLETE_SKILL:deprecated-skill|' <<< "$output"
 grep -qxF 'OBSOLETE_FILE:research-mode/scripts/clear-research-mode.sh|research-mode/scripts/clear-mode.sh' <<< "$output"
 if grep -qE '^(ALL_UP_TO_DATE|OBSOLETE_.*custom)' <<< "$output"; then
   printf '%s\n' 'Unexpected obsolete check output' >&2
@@ -53,8 +58,11 @@ test -d "$local_skills/persistent-memory"
 mv "$workspace/replacement.md" "$local_skills/persist/SKILL.md"
 
 delete skill persistent-memory
+# A deprecated skill is deleted without waiting for a replacement.
+delete skill deprecated-skill
 delete file research-mode/scripts/clear-research-mode.sh
 test ! -e "$local_skills/persistent-memory"
+test ! -e "$local_skills/deprecated-skill"
 test -d "$local_skills/custom"
 test -f "$local_skills/keep-local/SKILL.md"
 output=$(check)
