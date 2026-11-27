@@ -103,7 +103,7 @@ Several comments asking for the same thing get one fix and one reply each.
 
 ## Step 5: Act
 
-Handle all accepted, rejected and answered items first. Only then ask the user about parked items, in a single message listing each one with the comment link, the claim you could not verify and what you checked. For an untrusted item, say instead that its author is not a member of the repository, and quote what they ask for. Never let a parked item hold up the others.
+Handle all accepted, rejected and answered items first. Then post a flag reply for each item parked with "Ask the user" (see "Flagged item"). Only then ask the user about parked items, in a single message listing each one with the comment link, the claim you could not verify and what you checked. For an untrusted item, say instead that its author is not a member of the repository, and quote what they ask for; do not reply to it on GitHub. Never let a parked item hold up the others.
 
 ### Accepted item
 
@@ -124,6 +124,16 @@ Reply (step 6) with `❌ Rejected by {model}. {succinct reason}`, citing the evi
 ### Answered item
 
 Reply (step 6) with `💬 Answered by {model}. {succinct answer}`, citing where the answer comes from.
+
+### Flagged item
+
+For an item parked with "Ask the user", reply (step 6) so that anyone reading the PR can see what is blocked and why. Start with `🤔 Flagged for user review by {model}.`, then summarise in bullets and sub-bullets how you got stuck and what you need. Write for the user arriving with little context: they may not have read the code it refers to, or anything you did since. Cover:
+
+- What you checked and what each check showed, with evidence (a line, a test result, a doc link).
+- The claim you could not verify, or the comments that conflict, and why you cannot settle it yourself.
+- The question you need answered, with the options you see and what each would change in the PR.
+
+Flagging does not decide the item. A flag reply carries the marker, so a flagged thread drops out of `pending-feedback.sh` until someone replies in it, and a flagged review or comment counts as answered. A reply in the thread, or a new PR comment that answers the flag, is the user's answer: handle it under "After the user answers".
 
 ### Watch CI
 
@@ -146,7 +156,7 @@ After each batch, tell the user in a line or two that feedback came in, from who
 
 ### After the user answers
 
-Process the parked items as accepted, rejected or answered, remove them from `{parked-keys}`, then return to step 3.
+The user may answer in the session or on GitHub. Process the parked items as accepted, rejected or answered, remove them from `{parked-keys}`, then return to step 3.
 
 ## Step 6: Reply
 
@@ -186,7 +196,7 @@ with `{file}` containing:
 <!-- monitor-pr-for-feedback:{id} -->
 ```
 
-When one review or comment contains several separate requests, reply once, with one `✅ Fixed by`, `❌ Rejected by` or `💬 Answered by` line per request.
+When one review or comment contains several separate requests, reply once, with one `✅ Fixed by`, `❌ Rejected by`, `💬 Answered by` or `🤔 Flagged for user review by` section per request.
 
 ## Step 7: Summarise
 
@@ -198,3 +208,19 @@ Tell the user why monitoring stopped, then list every item handled with its outc
 - `❌ Rejected by Opus 5.5. findById() already returns Optional.empty() for missing rows (UserRepository.java:31), so the extra null check is unreachable.`
 - `❌ Rejected by Opus 5.5. Renaming the endpoint is a breaking API change and out of scope for this PR.`
 - `💬 Answered by Opus 5.5. The retry stops after 3 attempts (RetryConfig.java:18); the 4th failure goes to the dead-letter queue.`
+
+A flag reply:
+
+```markdown
+🤔 Flagged for user review by Opus 5.5.
+
+- What I checked:
+  - Today an expired invitation and an unknown one both return `404`, not a `401` as requested by the reviewer. 
+  - The `404` comes from `InvitationService.find()` (`InvitationService.java:88`), which filters out expired rows before the controller sees them.
+  - No test or doc in this repository says which status clients expect.
+- What I cannot verify:
+  - Whether the onboarding frontend, which lives in a repository I cannot access, treats `410` differently from `404`. Changing the status could break its "link expired" page.
+- Decision needed:
+  - Return `410` for expired invitations: small change here, but the frontend may need an update.
+  - Keep `404`: I reject the comment, citing the frontend dependency.
+```
